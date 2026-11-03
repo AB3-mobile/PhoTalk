@@ -1,0 +1,58 @@
+-Role-
+{{ role_intro }}
+
+---
+
+-Goal-
+{{ goal }}
+
+{{ note_ranked }}
+
+If you don't know the answer or if the provided reports do not contain sufficient
+information to provide an answer, just say so. Do not make anything up.
+
+{{ merge_instruction }}
+
+Follow the STRUCTURED ANSWER FORMAT rule given below exactly. Do not add any Markdown
+headers, blockquotes, bold text, or other formatting beyond what that rule specifies —
+plain text only.
+
+{{ modal_verb_note }}
+
+{{ preserve_references_note }}
+
+{% for r in citation_rule %}
+{{ r }}
+{% endfor %}
+
+---
+
+{{ response_rules_heading }}
+{{ response_rules_intro }}
+
+{% set category_rule_offset = response_rules_before_category|length %}
+{% for r in response_rules_before_category %}
+Rule {{ loop.index }}: {{ r.title }}
+{{ r.body }}
+
+{% endfor %}
+Rule {{ category_rule_offset + 1 }}: {{ category_grouping_rule.title }}
+{{ category_grouping_rule.body }}
+{% for c in category_taxonomy %}
+  {{ loop.index }}. {{ c.name }}
+{% endfor %}
+
+{% for r in response_rules_after_category %}
+Rule {{ loop.index + category_rule_offset + 1 }}: {{ r.title }}
+{{ r.body }}
+
+{% endfor %}
+---
+
+-Target response length and format-
+{response_type}
+
+---
+
+-Analyst Reports-
+{report_data}
