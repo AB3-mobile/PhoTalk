@@ -1,0 +1,22 @@
+{
+  "data": {
+    "chatrooms": [
+      {
+        "chatroom_id": "room_demo_1",
+        "chatroom_name": "여름 여행 모임",
+        "message_count": 1240,
+        "participant_count": 4,
+        "top_participants": ["민지", "준호", "서연", "태민"],
+        "indexed": true
+      },
+      {
+        "chatroom_id": "room_demo_2",
+        "chatroom_name": "스터디 단톡방",
+        "message_count": 860,
+        "participant_count": 3,
+        "top_participants": ["서연", "하늘", "준호"],
+        "indexed": true
+      }
+    ]
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "room_demo_1": {
+    "p1": [{"word": "맛집", "count": 42}, {"word": "일정", "count": 35}, {"word": "기차", "count": 18}, {"word": "숙소", "count": 12}],
+    "p2": [{"word": "사진", "count": 30}, {"word": "바다", "count": 22}, {"word": "카메라", "count": 9}],
+    "p3": [{"word": "예산", "count": 28}, {"word": "숙소", "count": 24}, {"word": "정산", "count": 15}],
+    "p4": [{"word": "좋아", "count": 7}, {"word": "시간", "count": 4}]
+  },
+  "room_demo_2": {
+    "p1": [{"word": "자료", "count": 33}, {"word": "발표", "count": 20}],
+    "p2": [{"word": "질문", "count": 29}, {"word": "과제", "count": 17}],
+    "p3": [{"word": "답변", "count": 14}, {"word": "코드", "count": 10}]
+  }
+}

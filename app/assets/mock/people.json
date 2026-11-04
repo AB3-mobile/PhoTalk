@@ -1,0 +1,13 @@
+{
+  "room_demo_1": [
+    {"participant_id": "p1", "name": "민지", "message_count": 520, "description": "여행 일정을 주도하고 맛집을 잘 아는 사람", "short_bio": "일정 담당", "avatar_url": null},
+    {"participant_id": "p2", "name": "준호", "message_count": 380, "description": "사진을 자주 공유하고 농담이 많은 사람", "short_bio": "사진 담당", "avatar_url": null},
+    {"participant_id": "p3", "name": "서연", "message_count": 240, "description": "예산과 숙소를 꼼꼼히 챙기는 사람", "short_bio": "회계 담당", "avatar_url": null},
+    {"participant_id": "p4", "name": "태민", "message_count": 100, "description": "가끔 등장해 짧게 답하는 사람", "short_bio": "조용한 편", "avatar_url": null}
+  ],
+  "room_demo_2": [
+    {"participant_id": "p1", "name": "서연", "message_count": 400, "description": "자료를 정리해서 올려주는 사람", "short_bio": "자료 담당", "avatar_url": null},
+    {"participant_id": "p2", "name": "하늘", "message_count": 300, "description": "질문을 많이 하는 사람", "short_bio": "질문 담당", "avatar_url": null},
+    {"participant_id": "p3", "name": "준호", "message_count": 160, "description": "답변을 도와주는 사람", "short_bio": "답변 담당", "avatar_url": null}
+  ]
+}
