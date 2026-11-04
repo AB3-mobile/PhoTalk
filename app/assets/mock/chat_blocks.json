@@ -1,0 +1,21 @@
+{
+  "2024-07-14_01": {
+    "id": "2024-07-14_01",
+    "room_name": "여름 여행 모임",
+    "date": "2024-07-14",
+    "messages": [
+      {"time": "10:02", "sender": "준호", "text": "바다 사진 올릴게!", "is_system": false},
+      {"time": "10:03", "sender": "민지", "text": "오 예쁘다", "is_system": false},
+      {"time": "10:05", "sender": null, "text": "준호님이 사진 3장을 보냈습니다.", "is_system": true}
+    ]
+  },
+  "2024-07-15_01": {
+    "id": "2024-07-15_01",
+    "room_name": "여름 여행 모임",
+    "date": "2024-07-15",
+    "messages": [
+      {"time": "21:10", "sender": "서연", "text": "숙소 비용 정산할게요", "is_system": false},
+      {"time": "21:12", "sender": "준호", "text": "확인했어", "is_system": false}
+    ]
+  }
+}

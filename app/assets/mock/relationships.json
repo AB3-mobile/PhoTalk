@@ -1,0 +1,15 @@
+{
+  "room_demo_1": [
+    {"source": "민지", "target": "준호", "relation_label": "절친", "description": "여행 계획과 사진을 자주 주고받는다"},
+    {"source": "민지", "target": "서연", "relation_label": "친구", "description": "일정과 예산을 함께 조율한다"},
+    {"source": "민지", "target": "태민", "relation_label": "채팅방 참여자", "description": null},
+    {"source": "서연", "target": "준호", "relation_label": "친구", "description": "숙소 비용을 두고 자주 이야기한다"},
+    {"source": "서연", "target": "태민", "relation_label": "채팅방 참여자", "description": null},
+    {"source": "준호", "target": "태민", "relation_label": "채팅방 참여자", "description": null}
+  ],
+  "room_demo_2": [
+    {"source": "서연", "target": "하늘", "relation_label": "스터디 동료", "description": "자료와 질문을 주고받는다"},
+    {"source": "서연", "target": "준호", "relation_label": "스터디 동료", "description": null},
+    {"source": "준호", "target": "하늘", "relation_label": "스터디 동료", "description": "질문에 답해 준다"}
+  ]
+}
