@@ -58,7 +58,7 @@ features(화면) ──▶ domain ◀── data(구현)         core는 어디�
 
 ---
 
-## 3. 레시피: UI(화면)를 만들고 싶다
+## 3. 화면 생성 방법: UI(화면)를 만들고 싶다
 
 예: "대화방 목록 화면" 추가.
 
@@ -86,7 +86,7 @@ features(화면) ──▶ domain ◀── data(구현)         core는 어디�
 
 ---
 
-## 4. 레시피: 새 데이터를 화면에 보여주고 싶다 (모델 → 인터페이스 → 더미 → 연결)
+## 4. 데이터 추가 방법: 새 데이터를 화면에 보여주고 싶다 (모델 → 인터페이스 → 더미 → 연결)
 
 예: "대화방의 하이라이트(highlights)"를 새로 보여주고 싶다.
 
@@ -97,13 +97,13 @@ features(화면) ──▶ domain ◀── data(구현)         core는 어디�
 | 3 | **더미 JSON** 추가 | `assets/mock/highlights.json` (`pubspec.yaml`의 `assets: - assets/mock/` 가 폴더째 등록하므로 파일만 넣으면 됨) |
 | 4 | **Mock 구현** | `data/mock/highlight_repository_mock.dart` (`loadMockJson('highlights')` 사용) |
 | 5 | **조립** | `main.dart`의 `providers`에 `Provider<HighlightRepository>(create: (_) => HighlightRepositoryMock())` 추가 |
-| 6 | 화면에서 사용 | `features/<기능>/` (3번 레시피) |
+| 6 | 화면에서 사용 | `features/<기능>/` (3번 화면 생성 방법) |
 
 기존 Repository에 메서드를 추가하면, 그 인터페이스를 구현한 **Mock(과 나중에 Api) 모두**에 구현을 추가해야 컴파일된다.
 
 ---
 
-## 5. 레시피: 더미 → 진짜 서버로 바꾸고 싶다
+## 5. 서버 연결 방법: 더미 → 진짜 서버로 바꾸고 싶다
 
 1. 서버 응답 모양을 확인한다 (예: `/messenger-chatrooms` → `{"data":{"chatrooms":[...]}}`). 더미 JSON이 이미 이 모양을 따른다.
 2. `data/api/chatroom_repository_api.dart` 를 만들고 `implements ChatroomRepository` 로 HTTP 호출을 구현한다. (패키지 `http` 또는 `dio`를 `pubspec.yaml`에 추가)
@@ -112,7 +112,7 @@ features(화면) ──▶ domain ◀── data(구현)         core는 어디�
 
 ---
 
-## 6. 레시피: 서버에 API(엔드포인트)를 추가하고 싶다
+## 6. API 추가 방법: 서버에 API(엔드포인트)를 추가하고 싶다
 
 1. **라우트** — `backend/src/app.py` 에 `@app.route("/새-경로", methods=["POST"])` 함수를 추가한다. 요청 파싱·응답(JSON)만 하고 실제 일은 `util/`로 넘긴다.
 2. **로직** — `backend/src/util/` 에 함수를 만든다(또는 기존 파일에 추가). DB를 읽고 쓰는 건 `util/database/`.
@@ -122,7 +122,7 @@ features(화면) ──▶ domain ◀── data(구현)         core는 어디�
 
 ---
 
-## 7. 레시피: AI(OpenAI) 관련 수정은 어디서?
+## 7. AI 수정 방법: AI(OpenAI) 관련 수정은 어디서?
 
 | 바꾸고 싶은 것 | 위치 |
 |---|---|
