@@ -27,7 +27,7 @@ from graphrag_llm.config import TokenizerConfig
 
 # GraphRAG 검색 엔진이 쓰는 채팅 모델 어댑터 — OpenAI(호환) API를 직접 호출하며 토큰 사용량을 누적한다
 class DirectOpenAIChatModel:
-    # 비동기 OpenAI 클라이언트를 만들고 모델명·토큰 카운터를 초기화한다 (api_base 지정 시 로컬 vLLM으로 라우팅)
+    # 비동기 OpenAI 클라이언트를 만들고 모델명·토큰 카운터를 초기화한다
     def __init__(self, api_key: str, model: str, api_base: str | None = None):
         self._client = openai.AsyncOpenAI(api_key=api_key, base_url=api_base) if api_base else openai.AsyncOpenAI(api_key=api_key) # 비동기 OpenAI(호환) 클라이언트
         self._model = model # 사용할 모델명
@@ -84,7 +84,7 @@ class DirectOpenAIChatModel:
 
 # GraphRAG 컨텍스트 빌더가 쓰는 임베딩 어댑터 — OpenAI(호환) 임베딩 API를 직접 호출한다
 class DirectOpenAIEmbedder:
-    # 동기 OpenAI 클라이언트와 임베딩 모델명을 초기화한다 (api_base 지정 시 로컬 vLLM으로 라우팅)
+    # 동기 OpenAI 클라이언트와 임베딩 모델명을 초기화한다
     def __init__(self, api_key: str, model: str, api_base: str | None = None):
         self._client = openai.OpenAI(api_key=api_key, base_url=api_base) if api_base else openai.OpenAI(api_key=api_key) # 동기 OpenAI(호환) 클라이언트
         self._model = model # 사용할 임베딩 모델명
@@ -138,7 +138,7 @@ def _build_local_engine(output_dir: str, graphrag_root: str) -> tuple[LocalSearc
     # LLM: 최종 답변 생성용
     model = DirectOpenAIChatModel(
         api_key=os.environ["LLM_API_KEY"],
-        model=llm_config.model,  # gpt-4o-mini
+        model=llm_config.model,  # RAG_CHAT_MODEL (.env)
         api_base=getattr(llm_config, "api_base", None),
     )
     text_embedder = DirectOpenAIEmbedder(

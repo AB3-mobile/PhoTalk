@@ -579,9 +579,7 @@ def run_federated_local_search(message: str, original_message: str, accounts_pat
                     {"role": "user", "content": message},
                 ]
 
-                # LocalSearch.search()는 model_params(예: temperature=0, frequency_penalty=0.4 —
-                # 개방형 요약 질문에서 같은 문구를 반복하며 늘어지는 현상을 막기 위한 설정,
-                # settings.yaml default_chat_model.call_args 참고)를 항상 completion_async에
+                # LocalSearch.search()는 model_params(settings.yaml default_chat_model.call_args)를 항상 completion_async에
                 # 실어 보내는데, 이 연합 검색 경로는 model을 직접 호출하느라 그 설정이 안 실려서
                 # 메신저 답변이 반복·중복되다 컨텍스트 한도에 걸려 잘리는 원인이 됐음 — 단일
                 # 계정 경로와 동일하게 넣어줌
@@ -809,13 +807,11 @@ def _classify_query_method(message: str) -> str:
 
     client = openai.OpenAI(
         api_key=os.environ.get("LLM_API_KEY"),
-        base_url=os.environ.get("SUB_TASK_API_BASE") or None,
     )
 
     res = client.chat.completions.create(
         model=os.getenv("SUB_TASK_CHAT_MODEL"),
-        messages=[{"role": "user", "content": prompt}],
-        temperature=0
+        messages=[{"role": "user", "content": prompt}]
     )
 
     method = res.choices[0].message.content.strip().lower()

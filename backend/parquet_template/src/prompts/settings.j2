@@ -9,16 +9,8 @@ completion_models:
     model: ${RAG_CHAT_MODEL}
     auth_method: api_key
     api_key: ${LLM_API_KEY}
-    # 질의응답(local_search/global_search) 전용 모델. api_base 지정 시 로컬 vLLM으로 라우팅.
-    # 비워두면 기존처럼 실제 OpenAI로 요청이 감.
-    api_base: ${RAG_CHAT_API_BASE}
-    call_args:
-      temperature: 0
-      # 개방형/요약형 질문(예: "누가 주로 어떤 말을 해?")에서 같은 문구·항목을 반복하며
-      # 늘어지는 현상 방지용. indexing_chat_model_reports에 이미 쓰던 것과 같은 패턴
-      # (당시도 반복 생성 문제 대응 목적). 학습(SFT) 손실 계산과는 무관한 디코딩 시점
-      # 설정이라 파인튜닝된 모델과의 프롬프트 일치 여부와는 상관없이 안전하게 조절 가능.
-      frequency_penalty: 0.4
+    # 질의응답(local_search/global_search) 전용 모델.
+    # gpt-5 계열은 temperature/frequency_penalty를 기본값 외로 지정하면 오류가 나므로 call_args를 두지 않는다.
 
     # retry/rate_limit: 인덱싱(graphrag indwx/update)에만 적용. 쿼리와는 무관
     retry:
@@ -29,17 +21,14 @@ completion_models:
       period_in_seconds: 60
       tokens_per_period: 180000   # TPP==TPM
 
-  # 로컬 vLLM(mailgrapher-llama-v4) — 인덱싱 전용. OpenAI 호환 API라 provider는 openai 그대로,
-  # api_base만 로컬 서버로 지정. api_key는 vLLM이 값 검증은 하되 실제 인증은 안 하므로 더미값 사용.
+  # 인덱싱 전용 챗 모델.
   indexing_chat_model:
     model_provider: openai
     model: ${INDEXING_CHAT_MODEL}
     auth_method: api_key
-    api_key: ${LOCAL_API_KEY}
-    api_base: ${INDEXING_API_BASE}
+    api_key: ${LLM_API_KEY}
     call_args:
-      temperature: 0
-      max_tokens: 6000   # 반복/장문 생성으로 안 멈추는 경우 대비 하드 캡 (max_input_length=5500과 합쳐도 max_model_len=12288 안에 여유 있게 들어옴)
+      max_tokens: 6000   # 반복/장문 생성으로 안 멈추는 경우 대비 상한
 
     retry:
       type: exponential_backoff
@@ -49,12 +38,9 @@ completion_models:
     model_provider: openai
     model: ${INDEXING_CHAT_MODEL}
     auth_method: api_key
-    api_key: ${LOCAL_API_KEY}
-    api_base: ${INDEXING_API_BASE}
+    api_key: ${LLM_API_KEY}
     call_args:
-      temperature: 0
-      max_tokens: 6000   # 반복/장문 생성으로 안 멈추는 경우 대비 하드 캡 (max_input_length=5500과 합쳐도 max_model_len=12288 안에 여유 있게 들어옴)
-      frequency_penalty: 0.4
+      max_tokens: 6000   # 반복/장문 생성으로 안 멈추는 경우 대비 상한
 
     retry:
       type: exponential_backoff
@@ -63,13 +49,12 @@ completion_models:
 embedding_models:
   # 지금은 아무 워크플로우도 embedding_model_id로 이 이름을 안 씀(전부 indexing_embedding_model 사용) —
   # 사실상 미사용 블록이지만, GraphRAG config 스키마상 완전히 지우면 로드 단계에서 에러 날 위험이
-  # 있어 안전하게 남겨두고, 대신 로컬 bge-m3(8001)를 가리키도록 해둠 — OpenAI로 나가는 경로 자체를 제거.
+  # 있어 안전하게 남겨둔다.
   default_embedding_model:
     model_provider: openai
     model: ${INDEXING_EMBEDDING_MODEL}
     auth_method: api_key
-    api_key: ${LOCAL_API_KEY}
-    api_base: ${INDEXING_EMBEDDING_API_BASE}
+    api_key: ${LLM_API_KEY}
 
     # retry/rate_limit: 인덱싱(embed_text 워크플로우)에만 적용. 쿼리와는 무관
     retry:
@@ -80,13 +65,12 @@ embedding_models:
       period_in_seconds: 60
       tokens_per_period: 180000
 
-  # 로컬 vLLM(bge-m3) — 인덱싱 전용
+  # 인덱싱 전용 임베딩 모델.
   indexing_embedding_model:
     model_provider: openai
     model: ${INDEXING_EMBEDDING_MODEL}
     auth_method: api_key
-    api_key: ${LOCAL_API_KEY}
-    api_base: ${INDEXING_EMBEDDING_API_BASE}
+    api_key: ${LLM_API_KEY}
 
     retry:
       type: exponential_backoff

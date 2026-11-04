@@ -19,7 +19,6 @@ load_dotenv("src/parquet/.env")
 
 client = OpenAI(
     api_key=os.getenv("LLM_API_KEY"),
-    base_url=os.getenv("SUB_TASK_API_BASE") or None,
 )
 
 # 시작 시각과 성능 카운터를 담은 타이머 dict를 만든다
@@ -113,8 +112,7 @@ def _is_friendly_tone_with_llm(body: str) -> bool:
                 "role": "user",
                 "content": prompt
             }
-        ],
-        temperature=0
+        ]
     )
 
     answer = result.choices[0].message.content.strip().lower()
@@ -149,8 +147,7 @@ def extract_keywords_with_llm(body: str) -> list[str]:
             messages=[
                 {"role": "system", "content": "당신은 텍스트에서 핵심 키워드를 추출하는 AI입니다."},
                 {"role": "user", "content": prompt}
-            ],
-            temperature=0.2
+            ]
         )
 
         result_text = response.choices[0].message.content.strip()
@@ -499,8 +496,7 @@ def generate_person_descriptions(paths) -> dict:
                             "content": "당신은 이메일 데이터를 분석해 인물 관계를 한국어로 간결하게 요약하는 AI입니다. 반드시 한국어(한글)만 사용하고, 영어 단어나 한자(중국어 문자)를 절대 섞지 않으며, 존댓말로 통일하고 반말을 섞지 않습니다."
                         },
                         {"role": "user", "content": user_content}
-                    ],
-                    temperature=min(0.3 + 0.2 * (attempt - 1), 0.7)
+                    ]
                 )
                 llm_output = result.choices[0].message.content.strip()
                 relationship, content, relation_label = _parse_relation_output(llm_output)
@@ -624,8 +620,7 @@ def generate_person_short_bios(descriptions: dict) -> dict:
                             "content": "당신은 인물 설명을 한 문장의 자연스러운 한국어 소개글로 압축하는 AI입니다. 반드시 한국어(한글)만 사용하고, 영어 단어나 한자(중국어 문자)를 절대 섞지 않으며, 존댓말(습니다/입니다체)로 통일하고 반말을 섞지 않습니다."
                         },
                         {"role": "user", "content": user_content}
-                    ],
-                    temperature=min(0.3 + 0.2 * (attempt - 1), 0.7)
+                    ]
                 )
                 bio = result.choices[0].message.content.strip()
                 last_bio = bio

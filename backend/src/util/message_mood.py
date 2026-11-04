@@ -89,7 +89,6 @@ def _build_raw_text(group):
 def _judge_mood_with_llm(text, period_label):
     client = openai.OpenAI(
         api_key=os.environ.get("LLM_API_KEY"),
-        base_url=os.environ.get("SUB_TASK_API_BASE") or None,
     )
     try:
         response = client.chat.completions.create(

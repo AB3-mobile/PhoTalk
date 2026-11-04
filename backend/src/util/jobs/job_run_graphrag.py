@@ -64,7 +64,7 @@ def _watch_graphrag_output(job_id, output_dir, start_time, stop_event, base_prog
             broadcast({"type": "progress", "job_id": job_id, "progress": prog, "message": msg})
 
 
-# SUB_TASK_CHAT_MODEL(Qwen2.5-7B, max_model_len=32768)에 안전하게 들어가도록 첨부파일
+# SUB_TASK_CHAT_MODEL의 컨텍스트에 안전하게 들어가도록 첨부파일
 # 텍스트 길이를 문자 수 기준으로 제한한다 
 MAX_ATTACHMENT_CHARS = 25000
 
@@ -85,7 +85,6 @@ def _summarize_attachment_text(text: str, paths, filename: str) -> str:
 
     client = openai.OpenAI(
         api_key=os.environ.get("LLM_API_KEY"),
-        base_url=os.environ.get("SUB_TASK_API_BASE") or None,
     )
     try:
         response = client.chat.completions.create(
@@ -455,14 +454,13 @@ def _rerun_communities_after_chatroom_merge(paths, env):
 # ChatRoom "(채팅방)" 접미사 규칙과 Person 생성 규칙을 동시에 놓치는 사례가 실제로 관측되어 추가한 결정론적 안전망.
 # 원본 text_unit에서 "HH:MM 이름:" 발화 패턴을 직접 스캔해 누락된 Person과 최소 관계(participates_in/spoke_on/interacts_with)를
 # 재구성하므로, 몇 번을 다시 인덱싱해도 이 실패가 재발할 때마다 자동으로 고쳐진다.
-# 저비용 부가작업용 로컬 모델(SUB_TASK_CHAT_MODEL, Qwen2.5-7B / GPU3:8003)로 짧은 텍스트 하나를 생성한다.
+# 저비용 부가작업용 모델(SUB_TASK_CHAT_MODEL)로 짧은 텍스트 하나를 생성한다.
 # extract_graph에 쓰이는 메인 인덱싱 모델보다 훨씬 저렴 -- 이미 첨부파일 요약 등 부가 작업에 쓰이는 것과 동일한 모델/경로를 재사용.
 # 실패하면 None을 반환하므로 호출부는 항상 기계적 템플릿 문장으로 폴백해야 한다 (이 함수 자체가 절대 예외를 올리지 않음).
 def _llm_subtask_complete(system_prompt: str, user_content: str, max_tokens: int = 120):
     try:
         client = openai.OpenAI(
             api_key=os.environ.get("LLM_API_KEY"),
-            base_url=os.environ.get("SUB_TASK_API_BASE") or None,
         )
         response = client.chat.completions.create(
             model=os.getenv("SUB_TASK_CHAT_MODEL"),
