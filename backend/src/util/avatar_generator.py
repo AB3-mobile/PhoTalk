@@ -437,8 +437,6 @@ A single friendly portrait of one person whose given name is "{name}". {gender_l
 - No border, no frame, no outline, no card edge of any kind around the outer edge of the canvas — the background color must reach all four edges directly.""".strip()
 
 
-
-
 _rembg_session = None
 _rembg_session_lock = threading.Lock()
 
@@ -541,23 +539,7 @@ def _load_relationship_hints(user_id: str) -> dict:
     return hints
 
 
-# 캐시된 아바타 맵에서 실제 png 파일이 있는 항목만 반환한다 (유실된 항목은 캐시에서도 제거)
-def get_cached_person_avatars(paths) -> dict:
-    avatar_map = _load_avatar_map(paths)
-    valid = {k: v for k, v in avatar_map.items() if _avatar_url_file_exists(paths, v)}
-    if len(valid) != len(avatar_map):
-        with _map_lock:
-            _save_avatar_map(paths, valid)  # 유실된 항목은 캐시에서도 지워서 재생성 대상이 되게 함
-    return valid
-
-
 _SELF_AVATAR_KEY = "__self__"
-
-
-# 로그인한 사용자 본인 아바타의 캐시 URL을 반환한다 (없거나 파일 유실 시 None)
-def get_cached_self_avatar(paths):
-    url = _load_avatar_map(paths).get(_SELF_AVATAR_KEY)
-    return url if _avatar_url_file_exists(paths, url) else None
 
 
 # 로그인한 사용자 본인 아바타를 없으면 한 번 생성·캐시하고 URL을 반환한다 (고정 키 __self__로 캐시, 동시 요청은 대기)
