@@ -36,7 +36,6 @@ def _extract_email(raw):
 def _summarize_with_llm(text, period_label, contacts):
     client = openai.OpenAI(
         api_key=os.environ.get("LLM_API_KEY"),
-        base_url=os.environ.get("SUB_TASK_API_BASE") or None,
     )
     system_prompt = (
         "주어진 이메일 목록을 분석하여 아래 JSON 형식으로만 응답하세요.\n"

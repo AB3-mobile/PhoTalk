@@ -1,12 +1,12 @@
-# 인물 이름·관계 힌트·회사 도메인 등을 바탕으로 FLUX 이미지 서버(또는 회사 로고)를 호출해 인물/본인/채팅방 참여자 아바타를 생성하고 person_avatars.json 캐시에 저장한다.
+# 인물 이름·관계 힌트·회사 도메인 등을 바탕으로 이미지 생성 API(또는 회사 로고)를 호출해 인물/본인/채팅방 참여자 아바타를 생성하고 person_avatars.json 캐시에 저장한다.
 
-# Generates avatars for people, the user, and chatroom participants by calling the FLUX image server (or fetching company logos) based on names, relationship hints, and company domains, caching the results in person_avatars.json.
+# Generates avatars for people, the user, and chatroom participants by calling an image generation API (or fetching company logos) based on names, relationship hints, and company domains, caching the results in person_avatars.json.
 
 import os
+import base64
 import io
 import re
 import json
-import base64
 import hashlib
 import threading
 import requests
@@ -20,18 +20,15 @@ from util.database.chatroom_reader import get_chatroom_people
 
 load_dotenv("src/parquet/.env")
 
-# text_client: 성별/기업 판별, 관계 힌트 번역 등 텍스트 판단(SUB_TASK_CHAT_MODEL, 로컬 Qwen)
+# text_client: 성별/기업 판별, 관계 힌트 번역 등 텍스트 판단(SUB_TASK_CHAT_MODEL)
 text_client = OpenAI(
     api_key=os.getenv("LLM_API_KEY"),
-    base_url=os.getenv("SUB_TASK_API_BASE") or None,
 )
 client = text_client  # 하위 호환용 별칭(아래 텍스트 판별 호출부에서 계속 사용)
 
-# GPU 서버에 직접 띄운 FLUX.1-schnell 서버(flux_server.py) 호출.
-IMAGE_API_BASE = os.getenv("IMAGE_API_BASE", "http://localhost:8005")
-AVATAR_SIZE = 512
-AVATAR_STEPS = 4
-AVATAR_GUIDANCE_SCALE = 0.0
+# 아바타 이미지 생성 모델(OpenAI 이미지 API)
+IMAGE_MODEL = os.getenv("IMAGE_MODEL", "gpt-image-2.5-flare")
+IMAGE_QUALITY = os.getenv("IMAGE_QUALITY", "low")
 
 _map_lock = threading.Lock()
 
@@ -168,8 +165,7 @@ def _infer_gender_presentation(name: str) -> str:
                                 "반드시 female, male, unknown 중 하나만 정확히 출력하세요. 판단이 애매하면 unknown.",
                 },
                 {"role": "user", "content": f"이름: {name}"},
-            ],
-            temperature=0,
+            ]
         )
         answer = result.choices[0].message.content.strip().lower()
         if "female" in answer:
@@ -221,8 +217,7 @@ def _classify_sender(name: str, domain: str) -> str | None:
                     ),
                 },
                 {"role": "user", "content": f"표시 이름: {name}\n이메일 도메인: {domain}"},
-            ],
-            temperature=0,
+            ]
         )
         answer = (result.choices[0].message.content or "").strip()
         if not answer or answer.upper() == "PERSON":
@@ -366,7 +361,7 @@ def _fetch_company_logo(domain: str) -> bytes | None:
     return None
 
 
-# 한국어 관계 힌트를 짧은 영어 한 문장으로 LLM 번역한다 (FLUX 프롬프트용, 실패 시 빈 문자열)
+# 한국어 관계 힌트를 짧은 영어 한 문장으로 LLM 번역한다 (이미지 프롬프트용, 실패 시 빈 문자열)
 def _translate_hint_to_english(hint: str) -> str:
     try:
         result = text_client.chat.completions.create(
@@ -378,8 +373,7 @@ def _translate_hint_to_english(hint: str) -> str:
                                 "간결한 영어 한 문장으로 번역하세요. 번역 결과 외의 다른 말은 절대 하지 마세요.",
                 },
                 {"role": "user", "content": hint},
-            ],
-            temperature=0,
+            ]
         )
         return (result.choices[0].message.content or "").strip()
     except Exception as e:
@@ -437,31 +431,12 @@ A single friendly portrait of one person whose given name is "{name}". {gender_l
 - No border, no frame, no outline, no card edge of any kind around the outer edge of the canvas — the background color must reach all four edges directly.""".strip()
 
 
-_rembg_session = None
-_rembg_session_lock = threading.Lock()
-
-
-# 인물 세그멘테이션(rembg) 세션을 프로세스당 한 번만 로드해 재사용한다
-def _get_rembg_session():
-    global _rembg_session
-    if _rembg_session is None:
-        with _rembg_session_lock:
-            if _rembg_session is None:
-                from rembg import new_session
-                _rembg_session = new_session("u2net")
-    return _rembg_session
-
-
-# rembg 세그멘테이션으로 인물 영역만 추출해 완전히 새 단색 배경 위에 확대 배치한 PNG 바이트를 반환한다
+# 투명 배경 PNG에서 인물 영역(알파)만 추출해 완전히 새 단색 배경 위에 확대 배치한 PNG 바이트를 반환한다
 def _normalize_composition(image_bytes: bytes, bg_rgb: tuple, min_top: float = 0.02, min_side: float = 0.03) -> bytes:
-    from rembg import remove
-
-    subject = Image.open(io.BytesIO(image_bytes)).convert("RGB")
+    rgba = Image.open(io.BytesIO(image_bytes)).convert("RGBA")
+    subject = rgba.convert("RGB")
     orig_w, orig_h = subject.size
-
-    session = _get_rembg_session()
-    cutout_bytes = remove(image_bytes, session=session)
-    alpha = Image.open(io.BytesIO(cutout_bytes)).convert("RGBA").split()[-1]
+    alpha = rgba.split()[-1]
 
     # 사진이 아니라 윤곽선이 뚜렷한 평면 일러스트라서 부드러운 반투명 경계가 필요 없다 —
     # 오히려 옷/어깨 같은 큰 단색 영역이 애매한 알파로 남으면 배경색과 섞여 흐릿한
@@ -477,8 +452,7 @@ def _normalize_composition(image_bytes: bytes, bg_rgb: tuple, min_top: float = 0
     canvas = Image.new("RGBA", (orig_w, orig_h), bg_rgb + (255,))
 
     if not bbox:
-        # 세그멘테이션이 완전히 실패하면(알파가 전부 비어있음) 원본을 그대로 반환한다
-        # (사람 영역을 못 찾았으므로 억지로 자르지 않는다).
+        # 알파가 전부 비어있으면 원본을 그대로 반환한다 (사람 영역을 못 찾았으므로 억지로 자르지 않는다).
         return image_bytes
 
     left, top, right, bottom = bbox
@@ -503,25 +477,19 @@ def _normalize_composition(image_bytes: bytes, bg_rgb: tuple, min_top: float = 0
     return out.getvalue()
 
 
-# GPU FLUX 서버를 호출해 아바타를 생성하고 rembg로 배경을 순수 단색으로 재구성한 PNG 바이트를 반환한다
+# OpenAI 이미지 API로 투명 배경 아바타를 생성하고, 단색 배경 위에 재구성한 PNG 바이트를 반환한다
 def generate_avatar_image_bytes(name: str, relationship_hint: str = "", seed_key: str = "") -> bytes:
     attrs = _pick_style_attributes(seed_key or name)
     prompt = _build_avatar_prompt(name, relationship_hint, seed_key)
-    response = requests.post(
-        f"{IMAGE_API_BASE}/generate",
-        json={
-            "prompt": prompt,
-            "steps": AVATAR_STEPS,
-            "guidance_scale": AVATAR_GUIDANCE_SCALE,
-            "height": AVATAR_SIZE,
-            "width": AVATAR_SIZE,
-        },
-        timeout=240,  # GPU 서버가 동시 요청을 사실상 순차 처리해서, 여러 명을 한꺼번에
-        # 생성할 때 뒤에 밀린 요청은 120초를 넘기기 쉬웠다 — 여유를 더 줌
+    response = text_client.images.generate(
+        model=IMAGE_MODEL,
+        prompt=prompt,
+        size="1024x1024",
+        quality=IMAGE_QUALITY,
+        background="transparent",
+        output_format="png",
     )
-    response.raise_for_status()
-    b64 = response.json()["image_base64"]
-    raw_bytes = base64.b64decode(b64)
+    raw_bytes = base64.b64decode(response.data[0].b64_json)
     return _normalize_composition(raw_bytes, attrs["bg_rgb"])
 
 
@@ -558,7 +526,7 @@ def generate_self_avatar(paths, name: str) -> str:
             _self_avatar_events[lock_key] = event
 
     if not is_owner:
-        # 다른 요청이 이미 생성 중 — 새로 FLUX를 호출하지 않고 그 결과가 끝나길 기다린다.
+        # 다른 요청이 이미 생성 중 — 새로 이미지를 생성하지 않고 그 결과가 끝나길 기다린다.
         event.wait(timeout=240)
         return _load_avatar_map(paths).get(_SELF_AVATAR_KEY) or cached
 
@@ -640,10 +608,7 @@ def generate_person_avatars_batch(paths, people: list) -> dict:
                 _in_progress.discard((paths.USER_ID, email))
 
     if targets:
-        # GPU 서버가 하나라 동시 요청을 어차피 순차 처리한다 — 여러 개를 동시에 던지면
-        # 뒤에 밀린 요청만 대기 시간이 늘어나 타임아웃 위험만 커지고 실제로는 더 빨라지지
-        # 않는다. 게다가 자기 자신(/generate-self-avatar)도 같은 GPU 서버를 같이 쓰므로
-        # 부담을 더 줄이려 동시 실행 수를 1로 낮춘다.
+        # 이미지 생성 요청이 몰리지 않도록 동시 실행 수를 1로 제한한다.
         with ThreadPoolExecutor(max_workers=1) as executor:
             futures = [executor.submit(_generate_one, email, name, domain) for email, name, domain in targets]
             for future in as_completed(futures):

@@ -67,14 +67,3 @@ routes (HTTP)  ──▶  services (기능 흐름)  ──▶  repositories (MyS
 
 규칙: routes는 repositories를 직접 부르지 않는다. DB·OpenAI는 services 아래에서만 만난다.
 
-## 4. 이 문서 기준 작업 순서
-
-1. `backend/` 구동 확인 (원본 그대로)
-2. 메일·웹서빙 가지치기 (LightRAG는 이식 때 제외) (한 번에 하나씩, 매번 구동 확인)
-3. `app/`: domain 모델 + 인터페이스 → mock 구현 → 첫 화면
-4. 나머지 화면 → `data/api/` 구현 → `main.dart`에서 교체
-5. 로컬 모델(Llama/Qwen/FLUX) 흔적 제거 + OpenAI 연동
-   - 챗: `.env` (인덱싱·그래프·분석·검색·부가기능 모두 OpenAI, gpt-5-mini)
-   - 임베딩: `settings.j2` 수정 + 재인덱싱
-   - 이미지: OpenAI 이미지 API(저가 모델)로 교체
-   - API 키는 서버 `.env`에만 둔다(앱에 넣지 않는다)
