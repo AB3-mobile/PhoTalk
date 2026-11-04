@@ -14,44 +14,6 @@ def _extract_mail_id_from_block(block: str) -> str | None:
     m = re.search(r"^\s*(?:\[ID\]|ID:)\s*(.+?)\s*$", block, re.MULTILINE)
     return m.group(1).strip() if m else None
 
-# mail_id 기준으로 첨부파일 추출 텍스트를 각 메일 블록 끝에 삽입한 전체 문자열을 반환한다
-def _merge_attachments_into_mail_blocks(content: str, attachment_texts_by_mail: dict[str, list[dict]]) -> str:
-    parts = content.split(MAIL_BLOCK_SEP)
-    merged_blocks = []
-
-    for part in parts:
-        block = part.strip()
-        if not block:
-            continue
-
-        block_text = f"{MAIL_BLOCK_SEP}\n{block}\n{MAIL_BLOCK_SEP}"
-
-        mail_id = _extract_mail_id_from_block(block_text)
-        if not mail_id:
-            merged_blocks.append(block_text)
-            continue
-
-        attachment_entries = attachment_texts_by_mail.get(mail_id, [])
-        if not attachment_entries:
-            merged_blocks.append(block_text)
-            continue
-
-        attachment_section = "\n[첨부파일 추출 내용]\n"
-        for i, item in enumerate(attachment_entries, start=1):
-            attachment_section += f"File {i}: {item['name']}\n{item['text']}\n\n"
-        attachment_section = attachment_section.rstrip() + "\n"
-
-        insert_pos = block_text.rfind(MAIL_BLOCK_SEP)
-        if insert_pos == -1:
-            merged_blocks.append(block_text + attachment_section)
-        else:
-            merged_blocks.append(
-                block_text[:insert_pos].rstrip() + "\n\n" +
-                attachment_section.rstrip() + "\n" +
-                MAIL_BLOCK_SEP
-            )
-
-    return "\n".join(merged_blocks) + "\n"
 
 # 전체 텍스트를 구분자로 잘라 메일 블록 문자열 리스트로 반환한다 (앞뒤 구분자 보정)
 def _split_mail_blocks(text):
@@ -150,32 +112,3 @@ _MAIL_SENDER_RE   = re.compile(r"^\[발신인\]\s*(.*)$", re.MULTILINE)
 _MAIL_RECEIVER_RE = re.compile(r"^\[수신인\]\s*(.*)$", re.MULTILINE)
 _MAIL_BODY_RE = re.compile(r"\[메일 본문\]\s*\n(.*?)(?:\n\[첨부파일 정보\]|\Z)", re.DOTALL)
 
-# documents.parquet에서 주어진 mail_id들의 제목/날짜/발신인/수신인/본문을 파싱해 {mail_id: dict}로 반환한다
-def get_mail_bodies_by_ids(paths, mail_ids: set[str]) -> dict[str, dict]:
-    if not mail_ids:
-        return {}
-    import pandas as pd
-
-    documents_path = os.path.join(paths.PARQUET_DIR, "documents.parquet")
-    if not os.path.exists(documents_path):
-        return {}
-
-    df = pd.read_parquet(documents_path, columns=["id", "text"])
-    df = df[df["id"].isin(mail_ids)]
-
-    result = {}
-    for _, row in df.iterrows():
-        text = str(row["text"])
-        subject_m  = _MAIL_SUBJECT_RE.search(text)
-        date_m     = _MAIL_DATE_RE.search(text)
-        sender_m   = _MAIL_SENDER_RE.search(text)
-        receiver_m = _MAIL_RECEIVER_RE.search(text)
-        body_m     = _MAIL_BODY_RE.search(text)
-        result[row["id"]] = {
-            "subject":  subject_m.group(1).strip() if subject_m else "",
-            "date":     date_m.group(1).strip() if date_m else "",
-            "sender":   sender_m.group(1).strip() if sender_m else "",
-            "receiver": receiver_m.group(1).strip() if receiver_m else "",
-            "body":     body_m.group(1).strip() if body_m else "",
-        }
-    return result
