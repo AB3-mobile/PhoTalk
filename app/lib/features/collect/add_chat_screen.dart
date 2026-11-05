@@ -1,11 +1,11 @@
 import 'dart:convert';
 
 import 'package:file_picker/file_picker.dart';
-import 'package:desktop_drop/desktop_drop.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/app_colors.dart';
+import '../../core/platform_drop_target.dart';
 import '../../core/app_text.dart';
 import '../../domain/models/chat_preview.dart';
 import '../../domain/repositories/chatroom_repository.dart';
@@ -132,7 +132,7 @@ class _AddChatScreenState extends State<AddChatScreen> {
   @override
   Widget build(BuildContext context) {
     final p = _preview;
-    return DropTarget(
+    return PlatformDropTarget(
       onDragDone: (d) => _onDrop(d.files),
       child: SubScreenScaffold(
       title: widget.existing == null ? '대화방 추가' : '대화방 수정',
@@ -236,7 +236,7 @@ class _AddChatScreenState extends State<AddChatScreen> {
                 child: ListView.separated(
                   scrollDirection: Axis.horizontal,
                   itemCount: p.participants.length,
-                  separatorBuilder: (_, __) => const SizedBox(width: 12),
+                  separatorBuilder: (_, _) => const SizedBox(width: 12),
                   itemBuilder: (_, i) => SizedBox(
                     width: 48,
                     child: Column(

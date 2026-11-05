@@ -1,7 +1,7 @@
-import 'package:desktop_drop/desktop_drop.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/app_colors.dart';
+import '../../core/platform_drop_target.dart';
 import '../../core/app_text.dart';
 import 'add_chat_screen.dart';
 import 'collect_controller.dart';
@@ -83,7 +83,7 @@ class _CollectScreenState extends State<CollectScreen> {
       builder: (context, _) {
         // 사진은 선택 사항이라 대화방만 있어도 다음 단계로 넘어갈 수 있다
         final canNext = _c.pendingChats.isNotEmpty;
-        return DropTarget(
+        return PlatformDropTarget(
           onDragEntered: (_) => setState(() => _dragging = true),
           onDragExited: (_) => setState(() => _dragging = false),
           onDragDone: (d) => _onDrop(d.files),

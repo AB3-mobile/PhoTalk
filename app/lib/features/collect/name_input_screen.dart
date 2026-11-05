@@ -171,7 +171,7 @@ class _NameInputScreenState extends State<NameInputScreen> {
         controller: _strip,
         scrollDirection: Axis.horizontal,
         itemCount: _photos.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 8),
+        separatorBuilder: (_, _) => const SizedBox(width: 8),
         itemBuilder: (_, i) {
           final id = _photos[i];
           final named = widget.controller.photoNames.containsKey(id) && i != _index;
