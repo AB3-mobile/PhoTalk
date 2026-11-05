@@ -1,5 +1,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- 서버(Flask)와 통신하기 위한 인터넷 권한 -->
+    <uses-permission android:name="android.permission.INTERNET"/>
     <application
+        android:usesCleartextTraffic="true"
         android:label="photalk"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">

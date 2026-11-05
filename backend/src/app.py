@@ -1281,6 +1281,37 @@ def message_upload_status(job_id):
         "error": job.get("error"),
     })
 
+# 업로드 전에 대화 파일을 파싱만 해서 방 이름·참여자별 메시지 수·기간·총 메시지 수를 미리 돌려준다 (저장·인덱싱 없음)
+@app.route("/message-preview", methods=["POST"])
+def message_preview():
+    data = request.json or {}
+    raw_text = data.get("content") or ""
+    filename_hint = (data.get("filename") or "").strip()
+
+    if not raw_text.strip():
+        return jsonify({"ok": False, "error": "대화 내용이 비어있습니다."}), 400
+
+    try:
+        messages = [m for m in parse_message_export(raw_text) if not m.get("is_system")]
+    except Exception as e:
+        return jsonify({"ok": False, "error": f"파싱 중 오류: {e}"}), 400
+
+    counts = {}
+    for m in messages:
+        counts[m["sender"]] = counts.get(m["sender"], 0) + 1
+    dates = [m["dt"].date() for m in messages]
+
+    return jsonify({
+        "ok": True,
+        "data": {
+            "room_name": guess_room_name(raw_text, filename_hint or "카카오톡 대화"),
+            "message_count": len(messages),
+            "participants": [{"name": k, "message_count": v} for k, v in counts.items()],
+            "start_date": min(dates).isoformat() if dates else None,
+            "end_date": max(dates).isoformat() if dates else None,
+        },
+    })
+
 # 해당 도메인의 계정(또는 대화방) 목록을 반환한다
 @app.route("/accounts", methods=["GET"])
 def accounts_route():
