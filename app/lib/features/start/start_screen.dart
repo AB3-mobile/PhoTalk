@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/app_colors.dart';
-import '../people/people_screen.dart';
+import '../collect/collect_screen.dart';
 import 'widgets/network_illustration.dart';
 import 'widgets/start_background.dart';
 
@@ -15,7 +15,7 @@ class StartScreen extends StatelessWidget {
   // '시작하기'를 누르면 다음 화면으로 넘어간다 (다음 화면이 정해지기 전까지는 참여자 목록으로 임시 연결)
   void _onStart(BuildContext context) {
     Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (_) => const PeopleScreen()),
+      MaterialPageRoute(builder: (_) => const CollectScreen()),
     );
   }
 
