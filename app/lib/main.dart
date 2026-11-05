@@ -10,7 +10,7 @@ import 'domain/repositories/chatroom_repository.dart';
 import 'domain/repositories/relationship_repository.dart';
 import 'domain/repositories/search_repository.dart';
 import 'domain/repositories/stats_repository.dart';
-import 'features/people/people_screen.dart';
+import 'features/start/start_screen.dart';
 
 void main() {
   runApp(PhoTalkApp());
@@ -38,7 +38,7 @@ class PhoTalkApp extends StatelessWidget {
       child: MaterialApp(
         title: 'PhoTalk',
         theme: buildAppTheme(),
-        home: const PeopleScreen(),
+        home: const StartScreen(),
       ),
     );
   }
