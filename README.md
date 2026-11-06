@@ -17,10 +17,12 @@ PhoTalk/
 │     │  ├─ models/              Chatroom, Person, Relationship, ChatPreview, UploadStatus ...
 │     │  └─ repositories/        데이터를 가져오는 약속(인터페이스)
 │     ├─ data/                   데이터를 실제로 가져오는 구현
-│     │  ├─ api/                 서버(Flask)와 통신
+│     │  ├─ api/                 서버(Flask)와 통신 (대화방·참여자, 키워드·통계, 관계, 지식 그래프)
 │     │  └─ mock/                더미 JSON으로 동작
 │     └─ features/               화면
 │        ├─ start/               시작 화면
+│        ├─ menu/                햄버거 메뉴 (app_menu_drawer.dart)
+│        ├─ graph/               대기능 3: 지식 그래프 보기 (knowledge_graph_screen, force_graph_view, force_simulation)
 │        ├─ collect/             대기능 1·2: 데이터 수집 → 수집 확인 → 그래프 구축
 │        │  ├─ collect_screen.dart        데이터 수집 (대화방·사진 추가)
 │        │  ├─ add_chat_screen.dart       대화방 추가·수정·삭제
@@ -100,7 +102,8 @@ flutter run -d chrome
 
 - 모바일 화면처럼 보려면 Chrome에서 `F12` → `Ctrl+Shift+M` 으로 기기 모드를 켜고 402×874 로 맞춘다.
 - 실행 중 `r`은 hot reload, `R`은 hot restart, `q`는 종료다. 패키지를 추가하거나 상태 구조를 바꾼 뒤에는 끄고 다시 실행한다. `Ctrl+C` 후 "일괄 작업을 끝내시겠습니까 (Y/N)?"가 나오면 `Y`를 입력한다.
-- 서버 없이 화면만 볼 때는 `app/lib/main.dart`의 `ChatroomRepositoryApi()`를 `ChatroomRepositoryMock()`으로 바꾼다 (확인 후 되돌린다).
+- 서버 없이 화면만 볼 때는 `app/lib/main.dart`의 `ChatroomRepositoryApi()`를 `ChatroomRepositoryMock()`으로 바꾼다 (확인 후 되돌린다). 지식 그래프 보기는 서버의 `/graph-data`를 쓰므로 서버가 켜져 있어야 한다.
+- 안드로이드 에뮬레이터는 `flutter run -d emulator-5554` 로 실행하고 서버 주소는 `10.0.2.2`로 자동 설정된다. 파일 선택에는 에뮬레이터에 대화 파일이 있어야 하므로 파일을 에뮬레이터 창에 끌어다 놓아 Downloads에 넣는다.
 
 **앱 사용 순서**: 시작하기 → 데이터 수집(`+ 대화방 추가`로 카카오톡 `.txt` 선택, 또는 파일을 창에 끌어다 놓기) → 다음 → 수집 확인 → 그래프 만들기. 사진은 선택 사항이다. "그래프 만들기"를 눌러야 서버에 업로드되고 인덱싱이 시작된다. 인덱싱은 몇 분 걸리고 OpenAI 호출 비용이 든다.
 
