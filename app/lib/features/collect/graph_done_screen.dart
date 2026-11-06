@@ -7,6 +7,7 @@ import '../../core/app_colors.dart';
 import '../../core/app_text.dart';
 import '../../domain/models/relationship.dart';
 import '../../domain/repositories/relationship_repository.dart';
+import '../graph/knowledge_graph_screen.dart';
 import 'collect_controller.dart';
 import 'collect_data.dart';
 import 'widgets/main_header.dart';
@@ -125,8 +126,11 @@ class _GraphDoneScreenState extends State<GraphDoneScreen> {
               child: NextButton(
                 label: '그래프 보기',
                 enabled: true,
-                onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('지식 그래프 보기 화면은 다음 단계에서 연결해요')),
+                onPressed: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => KnowledgeGraphScreen(chatroomId: c.roomIds.isNotEmpty ? c.roomIds.first : null),
+                  ),
                 ),
               ),
             ),

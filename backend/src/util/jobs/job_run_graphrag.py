@@ -946,7 +946,7 @@ def build_graphrag_index(job_id, paths, env, max_mails=None):
     stop_event = threading.Event()
     watcher = threading.Thread(
         target=_watch_graphrag_output,
-        args=(job_id, output_dir, start_time, stop_event, 5),
+        args=(job_id, output_dir, start_time, stop_event, 30),
         daemon=True,
     )
     watcher.start()
@@ -1056,7 +1056,7 @@ def build_graphrag_update(job_id,paths, env):
     stop_event = threading.Event()
     watcher = threading.Thread(
         target=_watch_graphrag_output,
-        args=(job_id, update_output_base, start_time, stop_event, 5),
+        args=(job_id, update_output_base, start_time, stop_event, 30),
         daemon=True,
     )
     watcher.start()

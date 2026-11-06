@@ -26,8 +26,9 @@ class GraphBuildingScreen extends StatefulWidget {
 class _GraphBuildingScreenState extends State<GraphBuildingScreen> {
   // 구축 단계 이름과 설명 (서버가 단계별 이름을 주지 않아 진행률 구간으로 나눈다)
   static const _titles = ['대화 파싱', '인물·관계 추출', '사진 매칭', '정리'];
-  // 단계가 끝나는 진행률 경계 (0~15 / 15~60 / 60~90 / 90~100)
-  static const _bounds = [15, 60, 90, 100];
+  // 단계가 끝나는 진행률 경계 (서버 진행 지점에 맞춘 값: 변환 15 / 엔티티·관계 추출 82까지 / 커뮤니티 리포트·마무리 100)
+  // 사진이 없으면 '사진 매칭'은 구간 없이 건너뛰고, 있으면 70~82 구간을 쓴다
+  List<int> get _bounds => widget.controller.photoCount == 0 ? [15, 82, 82, 100] : [15, 70, 82, 100];
 
   // 지금 진행률 0~100 (작업이 여러 개면 가장 느린 것 기준)
   int _progress = 0;
@@ -94,7 +95,9 @@ class _GraphBuildingScreenState extends State<GraphBuildingScreen> {
         setState(() => _error = all.firstWhere((s) => s.isFailed).message);
         return;
       }
-      setState(() => _progress = all.map((s) => s.progress).reduce(math.min));
+      // 서버 진행률이 잠깐 내려가도 화면의 퍼센트는 줄어들지 않게 한다
+      final lowest = all.map((s) => s.progress).reduce(math.min);
+      setState(() => _progress = math.max(_progress, lowest));
       if (all.every((s) => s.isDone)) _finish();
     } catch (_) {
       // 잠깐 연결이 끊겨도 다음 주기에 다시 시도한다
@@ -124,14 +127,6 @@ class _GraphBuildingScreenState extends State<GraphBuildingScreen> {
     return 3;
   }
 
-  // 현재 단계 안에서 얼마나 왔는지 0~1
-  double get _stepFraction {
-    final s = _step;
-    if (s >= 4) return 1;
-    final from = s == 0 ? 0 : _bounds[s - 1];
-    return ((_progress - from) / (_bounds[s] - from)).clamp(0.0, 1.0);
-  }
-
   @override
   Widget build(BuildContext context) {
     final c = widget.controller;
@@ -140,7 +135,7 @@ class _GraphBuildingScreenState extends State<GraphBuildingScreen> {
       '메시지 ${formatCount(c.messageTotal)}개 정리',
       '인물 ${c.participantTotal}명 발견',
       c.photoCount == 0 ? '사진 없음 · 건너뜀' : '사진 ${c.photoCount}장 매칭',
-      '그래프 구조 정리',
+      '커뮤니티 분석과 그래프 구조 정리',
     ];
 
     return PopScope(
@@ -160,7 +155,7 @@ class _GraphBuildingScreenState extends State<GraphBuildingScreen> {
                   style: appText(12, color: AppColors.textSecondary),
                 ),
                 const SizedBox(height: 28),
-                Center(child: _Ring(percent: _progress, step: _step)),
+                Center(child: _Ring(percent: _progress)),
                 const SizedBox(height: 28),
                 if (_error != null) ...[
                   Text('그래프를 만들지 못했어요: $_error', style: appText(12.5, color: const Color(0xFFD64545))),
@@ -177,7 +172,6 @@ class _GraphBuildingScreenState extends State<GraphBuildingScreen> {
                             title: _titles[i],
                             detail: details[i],
                             state: i < _step ? _StepState.done : (i == _step ? _StepState.current : _StepState.waiting),
-                            fraction: _stepFraction,
                             isLast: i == 3,
                           ),
                       ],
@@ -192,12 +186,11 @@ class _GraphBuildingScreenState extends State<GraphBuildingScreen> {
   }
 }
 
-// 가운데에 퍼센트와 "N / 4 단계"가 있는 원형 진행 그래프
+// 가운데에 전체 진행률(%)이 있는 원형 진행 그래프
 class _Ring extends StatelessWidget {
-  const _Ring({required this.percent, required this.step});
+  const _Ring({required this.percent});
 
   final int percent;
-  final int step;
 
   @override
   Widget build(BuildContext context) {
@@ -214,7 +207,7 @@ class _Ring extends StatelessWidget {
                 TextSpan(text: '$percent', style: appText(38, weight: FontWeight.w700)),
                 TextSpan(text: '%', style: appText(18, weight: FontWeight.w700)),
               ])),
-              Text('${math.min(step + 1, 4)} / 4 단계', style: appText(12, weight: FontWeight.w700, color: AppColors.textSecondary)),
+              Text('전체 진행률', style: appText(12, weight: FontWeight.w700, color: AppColors.textSecondary)),
             ],
           ),
         ),
@@ -259,15 +252,12 @@ class _StepRow extends StatelessWidget {
     required this.title,
     required this.detail,
     required this.state,
-    required this.fraction,
     required this.isLast,
   });
 
   final String title;
   final String detail;
   final _StepState state;
-  // 현재 단계의 진행 비율 (진행 중 막대에 쓴다)
-  final double fraction;
   final bool isLast;
 
   @override
@@ -312,21 +302,7 @@ class _StepRow extends StatelessWidget {
                   if (state == _StepState.done)
                     Text('완료', style: appText(11, weight: FontWeight.w700, color: AppColors.accent))
                   else if (state == _StepState.current)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 8),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(3),
-                        child: SizedBox(
-                          width: 90,
-                          height: 6,
-                          child: LinearProgressIndicator(
-                            value: fraction,
-                            backgroundColor: const Color(0xFFE6EBFB),
-                            color: AppColors.accent,
-                          ),
-                        ),
-                      ),
-                    ),
+                    Text('진행 중', style: appText(11, weight: FontWeight.w700, color: AppColors.textSecondary)),
                 ],
               ),
             ),

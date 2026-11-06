@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../core/app_colors.dart';
 import '../../core/platform_drop_target.dart';
 import '../../core/app_text.dart';
+import '../menu/app_menu_drawer.dart';
 import 'add_chat_screen.dart';
 import 'collect_controller.dart';
 import 'collect_data.dart';
@@ -47,6 +48,23 @@ class _CollectScreenState extends State<CollectScreen> {
     if (picked != null) _c.addPending(picked);
   }
 
+  // 목록의 대화방을 누르면 대화방 수정 화면을 열어 파일·이름을 고치거나 삭제하게 한다
+  Future<void> _editChat(int index) async {
+    if (index < _c.uploadedCount) {
+      _toast('이미 서버에 올린 대화방은 수정할 수 없어요');
+      return;
+    }
+    final result = await Navigator.push<Object>(
+      context,
+      MaterialPageRoute(builder: (_) => AddChatScreen(existing: _c.pendingChats[index])),
+    );
+    if (result is PickedChat) {
+      _c.replacePending(index, result);
+    } else if (result == kDeleteChat) {
+      _c.removePending(index);
+    }
+  }
+
   // 화면에 .txt 파일을 끌어다 놓으면 그 파일로 대화방 추가 화면을 연다
   Future<void> _onDrop(List<dynamic> files) async {
     setState(() => _dragging = false);
@@ -89,6 +107,7 @@ class _CollectScreenState extends State<CollectScreen> {
           onDragDone: (d) => _onDrop(d.files),
           child: Scaffold(
             backgroundColor: AppColors.background,
+            drawer: const AppMenuDrawer(current: AppMenuItem.collect),
             body: SafeArea(
               child: Column(
                 children: [
@@ -104,7 +123,7 @@ class _CollectScreenState extends State<CollectScreen> {
                           const SizedBox(height: 6),
                           Text('대화와 사진을 가져와 주세요', style: appText(12.5, color: AppColors.textSecondary)),
                           const SizedBox(height: 20),
-                          ChatSection(chats: _c.pendingChats, onAdd: _addChat, dragging: _dragging),
+                          ChatSection(chats: _c.pendingChats, onAdd: _addChat, onTapChat: _editChat, dragging: _dragging),
                           const SizedBox(height: 14),
                           PhotoSection(
                             photoCount: _c.photoCount,
@@ -147,11 +166,15 @@ class _Header extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Row(
+    return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        CircleIconButton(icon: Icons.menu_rounded, iconColor: AppColors.textPrimary),
-        CircleIconButton(icon: Icons.search_rounded, iconColor: AppColors.accent),
+        CircleIconButton(
+          icon: Icons.menu_rounded,
+          iconColor: AppColors.textPrimary,
+          onPressed: () => Scaffold.of(context).openDrawer(),
+        ),
+        const CircleIconButton(icon: Icons.search_rounded, iconColor: AppColors.accent),
       ],
     );
   }
