@@ -141,7 +141,7 @@ def _account_indexed_at(paths) -> float:
     return _dir_max_mtime(paths.GRAPHRAG_ROOT)
 
 # user_data/{domain} 디렉터리를 훑어 각 계정의 user_id·인덱싱 여부·시각·방 이름을 담은 목록을 반환한다 (최근 인덱싱순 정렬)
-def list_accounts(base_dir: str, domain: str = "mail") -> list[dict]:
+def list_accounts(base_dir: str, domain: str = "messenger") -> list[dict]:
     user_data_dir = os.path.join(base_dir, "user_data", domain)
     accounts = []
 
@@ -181,7 +181,7 @@ def list_accounts(base_dir: str, domain: str = "mail") -> list[dict]:
     return accounts
 
 # 인덱싱까지 완료된 계정의 user_id만 리스트로 반환한다 (연합 검색 대상 목록)
-def list_indexed_user_ids(base_dir: str, domain: str = "mail") -> list[str]:
+def list_indexed_user_ids(base_dir: str, domain: str = "messenger") -> list[str]:
     return [a["user_id"] for a in list_accounts(base_dir, domain) if a["indexed"]]
 
 # 도메인별 공용 settings.yaml과 prompts를 사용자 GraphRAG 폴더에 최신본으로 복사한다

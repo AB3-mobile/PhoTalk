@@ -15,7 +15,8 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from dotenv import load_dotenv
 from openai import OpenAI
 from PIL import Image, ImageChops
-from util.database.db_reader import get_person_descriptions, get_all_persons
+# [메일 제거]
+# from util.database.db_reader import get_person_descriptions, get_all_persons
 from util.database.chatroom_reader import get_chatroom_people
 
 load_dotenv("src/parquet/.env")
@@ -494,17 +495,18 @@ def generate_avatar_image_bytes(name: str, relationship_hint: str = "", seed_key
 
 
 # person.description에서 이메일별 '관계' 한 줄을 뽑아 {이메일: 힌트} dict로 반환한다
-def _load_relationship_hints(user_id: str) -> dict:
-    hints = {}
-    try:
-        for row in get_person_descriptions(user_id):
-            email = (row.get("person_account_id") or "").strip().lower()
-            hint = _extract_relationship_hint(row.get("description") or "")
-            if email and hint:
-                hints[email] = hint
-    except Exception as e:
-        print(f"[AVATAR] 관계 설명 조회 실패 (스타일 힌트 없이 진행): {e}")
-    return hints
+# [메일 제거]
+# def _load_relationship_hints(user_id: str) -> dict:
+#     hints = {}
+#     try:
+#         for row in get_person_descriptions(user_id):
+#             email = (row.get("person_account_id") or "").strip().lower()
+#             hint = _extract_relationship_hint(row.get("description") or "")
+#             if email and hint:
+#                 hints[email] = hint
+#     except Exception as e:
+#         print(f"[AVATAR] 관계 설명 조회 실패 (스타일 힌트 없이 진행): {e}")
+#     return hints
 
 
 _SELF_AVATAR_KEY = "__self__"
@@ -550,82 +552,84 @@ def generate_self_avatar(paths, name: str) -> str:
 
 
 # 아직 캐시 없는 연락처만 아바타(기업은 로고, 개인은 일러스트)를 생성하고 {이메일: URL} 매핑을 반환한다
-def generate_person_avatars_batch(paths, people: list) -> dict:
-    os.makedirs(paths.AVATAR_IMAGES_DIR, exist_ok=True)
-    avatar_map = _load_avatar_map(paths)
-
-    targets = []
-    seen = set()
-    for p in people:
-        email = (p.get("email") or "").strip().lower()
-        name = (p.get("name") or "").strip()
-        if not email or not name or email in seen:
-            continue
-        seen.add(email)
-        if not _avatar_url_file_exists(paths, avatar_map.get(email)):
-            key = (paths.USER_ID, email)
-            with _in_progress_lock:
-                if key in _in_progress:
-                    # 다른 요청이 이 이메일을 이미 생성 중 — 중복으로 또 시작하지 않는다.
-                    # (그 요청이 끝나면 캐시가 채워지므로 다음 새로고침/배치에서 히트된다.)
-                    continue
-                _in_progress.add(key)
-            domain = email.split("@", 1)[1] if "@" in email else ""
-            targets.append((email, name, domain))
-
-    relationship_hints = _load_relationship_hints(paths.USER_ID) if targets else {}
-
-    # 연락처 한 명의 아바타(로고 또는 일러스트)를 생성해 파일 저장하고 캐시에 병합한다
-    def _generate_one(email, name, domain):
-        try:
-            brand_domain = _classify_sender(name, domain)
-            image_bytes = _fetch_company_logo(brand_domain) if brand_domain else None
-            is_logo = image_bytes is not None
-            if image_bytes is None:
-                image_bytes = generate_avatar_image_bytes(name, relationship_hints.get(email, ""), email)
-
-            filename = _avatar_filename(email)
-            filepath = os.path.join(paths.AVATAR_IMAGES_DIR, filename)
-            with open(filepath, "wb") as f:
-                f.write(image_bytes)
-            url = f"/person-avatar-image/{paths.USER_ID}/{filename}"
-            with _map_lock:
-                # 저장 직전에 파일을 다시 읽어 병합한다. 요청 시작 시점 스냅샷(avatar_map)을
-                # 그대로 덮어쓰면, 동시에 들어온 다른 /generate-person-avatars 요청이 그 사이
-                # 새로 추가한 항목을 지워버려 "생성 완료" 로그는 찍히는데 person_avatars.json엔
-                # 안 남는(→ 화면에 안 뜨고 다음 로드 때 또 재생성되는) 문제가 생긴다.
-                latest = _load_avatar_map(paths)
-                latest[email] = url
-                _save_avatar_map(paths, latest)
-                avatar_map[email] = url
-            print(f"[AVATAR] 생성 완료: {email} ({name}){' [기업 로고]' if is_logo else ''}")
-            return email, url
-        except Exception as e:
-            print(f"[AVATAR] 생성 실패 ({email}): {e}")
-            return email, None
-        finally:
-            with _in_progress_lock:
-                _in_progress.discard((paths.USER_ID, email))
-
-    if targets:
-        # 이미지 생성 요청이 몰리지 않도록 동시 실행 수를 1로 제한한다.
-        with ThreadPoolExecutor(max_workers=1) as executor:
-            futures = [executor.submit(_generate_one, email, name, domain) for email, name, domain in targets]
-            for future in as_completed(futures):
-                future.result()
-
-    return {email: avatar_map[email] for email in seen if email in avatar_map}
+# [메일 제거]
+# def generate_person_avatars_batch(paths, people: list) -> dict:
+#     os.makedirs(paths.AVATAR_IMAGES_DIR, exist_ok=True)
+#     avatar_map = _load_avatar_map(paths)
+#
+#     targets = []
+#     seen = set()
+#     for p in people:
+#         email = (p.get("email") or "").strip().lower()
+#         name = (p.get("name") or "").strip()
+#         if not email or not name or email in seen:
+#             continue
+#         seen.add(email)
+#         if not _avatar_url_file_exists(paths, avatar_map.get(email)):
+#             key = (paths.USER_ID, email)
+#             with _in_progress_lock:
+#                 if key in _in_progress:
+#                     # 다른 요청이 이 이메일을 이미 생성 중 — 중복으로 또 시작하지 않는다.
+#                     # (그 요청이 끝나면 캐시가 채워지므로 다음 새로고침/배치에서 히트된다.)
+#                     continue
+#                 _in_progress.add(key)
+#             domain = email.split("@", 1)[1] if "@" in email else ""
+#             targets.append((email, name, domain))
+#
+#     relationship_hints = _load_relationship_hints(paths.USER_ID) if targets else {}
+#
+#     # 연락처 한 명의 아바타(로고 또는 일러스트)를 생성해 파일 저장하고 캐시에 병합한다
+#     def _generate_one(email, name, domain):
+#         try:
+#             brand_domain = _classify_sender(name, domain)
+#             image_bytes = _fetch_company_logo(brand_domain) if brand_domain else None
+#             is_logo = image_bytes is not None
+#             if image_bytes is None:
+#                 image_bytes = generate_avatar_image_bytes(name, relationship_hints.get(email, ""), email)
+#
+#             filename = _avatar_filename(email)
+#             filepath = os.path.join(paths.AVATAR_IMAGES_DIR, filename)
+#             with open(filepath, "wb") as f:
+#                 f.write(image_bytes)
+#             url = f"/person-avatar-image/{paths.USER_ID}/{filename}"
+#             with _map_lock:
+#                 # 저장 직전에 파일을 다시 읽어 병합한다. 요청 시작 시점 스냅샷(avatar_map)을
+#                 # 그대로 덮어쓰면, 동시에 들어온 다른 /generate-person-avatars 요청이 그 사이
+#                 # 새로 추가한 항목을 지워버려 "생성 완료" 로그는 찍히는데 person_avatars.json엔
+#                 # 안 남는(→ 화면에 안 뜨고 다음 로드 때 또 재생성되는) 문제가 생긴다.
+#                 latest = _load_avatar_map(paths)
+#                 latest[email] = url
+#                 _save_avatar_map(paths, latest)
+#                 avatar_map[email] = url
+#             print(f"[AVATAR] 생성 완료: {email} ({name}){' [기업 로고]' if is_logo else ''}")
+#             return email, url
+#         except Exception as e:
+#             print(f"[AVATAR] 생성 실패 ({email}): {e}")
+#             return email, None
+#         finally:
+#             with _in_progress_lock:
+#                 _in_progress.discard((paths.USER_ID, email))
+#
+#     if targets:
+#         # 이미지 생성 요청이 몰리지 않도록 동시 실행 수를 1로 제한한다.
+#         with ThreadPoolExecutor(max_workers=1) as executor:
+#             futures = [executor.submit(_generate_one, email, name, domain) for email, name, domain in targets]
+#             for future in as_completed(futures):
+#                 future.result()
+#
+#     return {email: avatar_map[email] for email in seen if email in avatar_map}
 
 
 # 이 계정의 연락처 전체를 조회해 일괄 아바타를 생성한다 (인덱싱 완료 직후 서버 사이드 트리거용)
-def generate_all_person_avatars(paths) -> dict:
-    persons = get_all_persons(paths.USER_ID)
-    people = [
-        {"email": p["person_mail_account_id"], "name": p.get("person_name") or ""}
-        for p in persons
-        if p.get("person_mail_account_id")
-    ]
-    return generate_person_avatars_batch(paths, people)
+# [메일 제거]
+# def generate_all_person_avatars(paths) -> dict:
+#     persons = get_all_persons(paths.USER_ID)
+#     people = [
+#         {"email": p["person_mail_account_id"], "name": p.get("person_name") or ""}
+#         for p in persons
+#         if p.get("person_mail_account_id")
+#     ]
+#     return generate_person_avatars_batch(paths, people)
 
 
 # 채팅방 참여자 아바타 캐시 맵을 그대로 반환한다

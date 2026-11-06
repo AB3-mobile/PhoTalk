@@ -249,7 +249,7 @@ def get_chatroom_people(chatroom_id: str):
     try:
         cursor.execute(
             """
-            SELECT participant_id, chatroom_people_name AS name, message_count, description, short_bio
+            SELECT chatroom_people_id AS participant_id, chatroom_people_name AS name, message_count, description, short_bio
             FROM chatroom_people
             WHERE chatroom_id = %s AND index_date = %s AND user_id = %s
             ORDER BY message_count DESC
@@ -293,7 +293,7 @@ def get_chatroom_people_stats(chatroom_id: str, start_date: str, end_date: str):
               ON p.block_id = b.block_id AND p.chatroom_id = b.chatroom_id
              AND p.index_date = b.index_date AND p.user_id = b.user_id
             LEFT JOIN chatroom_people cp
-              ON cp.participant_id = p.participant_name AND cp.chatroom_id = p.chatroom_id
+              ON cp.chatroom_people_id = p.participant_name AND cp.chatroom_id = p.chatroom_id
              AND cp.index_date = p.index_date AND cp.user_id = p.user_id
             WHERE p.chatroom_id = %s AND p.index_date = %s AND p.user_id = %s
               AND b.block_date BETWEEN %s AND %s
@@ -401,13 +401,13 @@ def get_chatroom_person_detail(chatroom_id: str, start_date: str, end_date: str,
     cursor = conn.cursor(dictionary=True)
     try:
         sql = """
-            SELECT participant_id, chatroom_people_name AS name, description
+            SELECT chatroom_people_id AS participant_id, chatroom_people_name AS name, description
             FROM chatroom_people
             WHERE chatroom_id = %s AND index_date = %s AND user_id = %s
         """
         params = [chatroom_id, index_date, user_id]
         if participant_id:
-            sql += " AND participant_id = %s"
+            sql += " AND chatroom_people_id = %s"
             params.append(participant_id)
         cursor.execute(sql, params)
         roster = cursor.fetchall()
@@ -489,7 +489,7 @@ def get_chatroom_keywords_by_person(chatroom_id: str, start_date: str, end_date:
         cursor.execute(
             """
             SELECT 1 FROM chatroom_people
-            WHERE chatroom_id = %s AND index_date = %s AND user_id = %s AND participant_id = %s
+            WHERE chatroom_id = %s AND index_date = %s AND user_id = %s AND chatroom_people_id = %s
             """,
             (chatroom_id, index_date, user_id, participant_id),
         )
@@ -697,7 +697,7 @@ def get_chatroom_person_monthly_stats(chatroom_id: str, participant_id: str, sta
         cursor.execute(
             """
             SELECT 1 FROM chatroom_people
-            WHERE chatroom_id = %s AND index_date = %s AND user_id = %s AND participant_id = %s
+            WHERE chatroom_id = %s AND index_date = %s AND user_id = %s AND chatroom_people_id = %s
             """,
             (chatroom_id, index_date, user_id, participant_id),
         )
@@ -747,7 +747,7 @@ def get_chatroom_person_daily_stats(chatroom_id: str, participant_id: str, month
         cursor.execute(
             """
             SELECT 1 FROM chatroom_people
-            WHERE chatroom_id = %s AND index_date = %s AND user_id = %s AND participant_id = %s
+            WHERE chatroom_id = %s AND index_date = %s AND user_id = %s AND chatroom_people_id = %s
             """,
             (chatroom_id, index_date, user_id, participant_id),
         )
