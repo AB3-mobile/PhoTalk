@@ -304,7 +304,7 @@ def save_chatroom_people_to_db(paths, update_date=None):
     try:
         insert_sql = """
             INSERT INTO chatroom_people (
-                participant_id, chatroom_id, index_date, user_id,
+                chatroom_people_id, chatroom_id, index_date, user_id,
                 chatroom_people_name, message_count, description, short_bio
             )
             VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
@@ -354,7 +354,7 @@ def save_chatroom_relationships_to_db(paths, update_date=None):
     people_cursor = people_cursor_conn.cursor()
     try:
         people_cursor.execute(
-            "SELECT participant_id FROM chatroom_people WHERE chatroom_id=%s AND index_date=%s AND user_id=%s",
+            "SELECT chatroom_people_id FROM chatroom_people WHERE chatroom_id=%s AND index_date=%s AND user_id=%s",
             (chatroom_id, update_date, user_id),
         )
         person_names = {row[0] for row in people_cursor.fetchall()}

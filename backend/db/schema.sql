@@ -1,6 +1,6 @@
 -- =====================================================================
 -- PhoTalk 메신저 + 사진 스키마 (MySQL 8.0)
--- DB: social_visualizer_db
+-- DB: PhoTalk_db
 --
 -- - 모든 CREATE는 IF NOT EXISTS → 이미 있는 테이블은 건너뜀
 --   (기존 테이블 구조를 바꾸려면 아래 DROP 구간 주석을 풀고 실행)
@@ -86,7 +86,7 @@ CREATE TABLE IF NOT EXISTS `known_person` (
   `display_name`  VARCHAR(255) NOT NULL,
   `created_at`    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT `PK_KNOWN_PERSON` PRIMARY KEY (`person_id`),
-  INDEX `IDX_known_person_user` (`user_id`),
+  CONSTRAINT `UQ_known_person_user_name` UNIQUE (`user_id`, `display_name`),  -- 동명이인 불가
   CONSTRAINT `FK_user_TO_known_person`
     FOREIGN KEY (`user_id`) REFERENCES `user` (`user_id`)
     ON DELETE CASCADE
