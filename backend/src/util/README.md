@@ -19,7 +19,6 @@
 | `imap_message.py` | 메일 메시지(헤더·본문·첨부)를 인덱싱용 텍스트 블록으로 파싱 |
 | `mail_data_manager.py` | 메일 블록 병합·분할·재정렬, `mail_latest.txt` → CSV 변환 |
 | `message_parser.py` | 카카오톡 대화 내보내기 텍스트 파싱 → 메시지·방 ID |
-| `attachment_manager.py` | 첨부파일(PDF·DOCX·HWP·PPTX·XLSX·CSV) 텍스트 추출 |
 
 ### 통계 추출
 
@@ -35,8 +34,7 @@
 |------|------|
 | `graphrag.py` | GraphRAG CLI 질의 실행, 응답 정제, 질의 로그 DB 저장, 인덱싱 완료 확인 |
 | `graphrag_engine.py` | LocalSearch/GlobalSearch 엔진을 유저별 메모리 캐싱 |
-| `graphrag_query.py` / `graphrag_date_query.py` | 단일·연합 질의 / 날짜 범위 질의 |
-| `graphrag_mail_summary.py` | 월별·연별 메일 요약 |
+| `graphrag_query.py` | 단일·연합 질의 |
 | `graphrag_progress.py` | 인덱싱 단계별 진행률 계산 |
 
 ### 공통 인프라
@@ -78,7 +76,6 @@ The three sub-packages each have their own README.
 | `imap_message.py` | Parse a mail message (headers, body, attachments) into an indexing text block |
 | `mail_data_manager.py` | Merge/split/renumber mail blocks, `mail_latest.txt` → CSV |
 | `message_parser.py` | Parse KakaoTalk chat exports → messages, room IDs |
-| `attachment_manager.py` | Extract text from attachments (PDF/DOCX/HWP/PPTX/XLSX/CSV) |
 
 ### Statistics extraction
 
@@ -94,8 +91,7 @@ The three sub-packages each have their own README.
 |------|------|
 | `graphrag.py` | Run GraphRAG CLI queries, clean responses, log queries to DB, check indexing completion |
 | `graphrag_engine.py` | Per-user in-memory cache of LocalSearch/GlobalSearch engines |
-| `graphrag_query.py` / `graphrag_date_query.py` | Single/federated query / date-range query |
-| `graphrag_mail_summary.py` | Monthly and yearly mail summaries |
+| `graphrag_query.py` | Single/federated query |
 | `graphrag_progress.py` | Per-stage indexing progress |
 
 ### Shared infrastructure

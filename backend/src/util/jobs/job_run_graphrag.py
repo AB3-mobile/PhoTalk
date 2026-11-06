@@ -19,9 +19,10 @@ from util.sse_broadcaster import broadcast
 from util.user_path import user_graphrag_init
 
 from config.settings import MAIL_BLOCK_SEP, BASE_DIR
-from util.extract_statics import start_timer,end_timer,format_elapsed_time, _extract_statics_pipeline
-from util.database.db_writer import create_mail_account,save_person_stats_to_db,save_keyword_stats_to_db, save_mail_folder_to_db, save_mail_to_db, collect_indexing_stats, update_mail_account_indexing_stats, save_graph_stats_to_db
-from util.graphrag_mail_summary import generate_mail_summaries
+from util.extract_statics import start_timer,end_timer,format_elapsed_time
+from util.database.db_writer import collect_indexing_stats
+# [메일 제거]
+# from util.graphrag_mail_summary import generate_mail_summaries
 
 from util.message_statics import _extract_message_statics_pipeline, _parse_message_blocks_from_parquet, count_total_messages
 from util.database.chatroom_db_writer import (
@@ -31,7 +32,7 @@ from util.database.chatroom_db_writer import (
 )
 from util.message_summary import generate_message_summaries
 from util.message_mood import recompute_all_message_moods
-from util.avatar_generator import generate_chatroom_people_avatars_batch, generate_all_person_avatars
+from util.avatar_generator import generate_chatroom_people_avatars_batch
 
 sys.path.insert(0, os.path.join(BASE_DIR, "parquet_template", "src"))
 from renderer import render_all_prompts     # reportMissingImports 발생한다면 무시: sys.path.insert가 런타임에만 반영되는 동적 경로라 정적 분석기가 renderer 모듈을 못 찾아서 뜨는 오탐. 실행 시엔 정상 동작함
@@ -66,89 +67,92 @@ def _watch_graphrag_output(job_id, output_dir, start_time, stop_event, base_prog
 
 # SUB_TASK_CHAT_MODEL의 컨텍스트에 안전하게 들어가도록 첨부파일
 # 텍스트 길이를 문자 수 기준으로 제한한다 
-MAX_ATTACHMENT_CHARS = 25000
+# [메일 제거]
+# MAX_ATTACHMENT_CHARS = 25000
 
 # 첨부파일 텍스트를 LLM으로 요약해 반환한다 (짧으면 원문 그대로, 너무 길면 잘라서 요약)
-def _summarize_attachment_text(text: str, paths, filename: str) -> str:
-    pure_len = len(text.replace(" ", "").replace("\n", ""))
-    if pure_len < 500:
-        return text  # 짧은 텍스트는 요약 없이 그대로 반환
-
-    if len(text) > MAX_ATTACHMENT_CHARS:
-        print(f"[summarize_attachment] {filename}: {len(text)}자 → {MAX_ATTACHMENT_CHARS}자로 잘라서 요약 (컨텍스트 초과 방지)")
-        text = text[:MAX_ATTACHMENT_CHARS]
-
-    prompt_path = os.path.join("parquet_template", "rendered", paths.DOMAIN, "prompts", "summarize_attachment.txt")
-
-    with open(prompt_path, "r", encoding="utf-8") as f:
-        prompt = f.read().strip()
-
-    client = openai.OpenAI(
-        api_key=os.environ.get("LLM_API_KEY"),
-    )
-    try:
-        response = client.chat.completions.create(
-            model=os.getenv("SUB_TASK_CHAT_MODEL"), 
-            messages=[
-                {"role": "system", "content": prompt},
-                {"role": "user", "content": f"파일명: {filename}\n\n{text}"}
-            ],
-            max_completion_tokens=150  
-        )
-        return response.choices[0].message.content.strip()
-    except Exception as e:
-        print(f"[summarize_attachment error] {filename}: {e}")
-        # 실패해도 요약 성공 시 규격(max_completion_tokens=150 ≈ 한글 300자)에 맞춰 반환한다
-        return text[:300]
+# [메일 제거]
+# def _summarize_attachment_text(text: str, paths, filename: str) -> str:
+#     pure_len = len(text.replace(" ", "").replace("\n", ""))
+#     if pure_len < 500:
+#         return text  # 짧은 텍스트는 요약 없이 그대로 반환
+#
+#     if len(text) > MAX_ATTACHMENT_CHARS:
+#         print(f"[summarize_attachment] {filename}: {len(text)}자 → {MAX_ATTACHMENT_CHARS}자로 잘라서 요약 (컨텍스트 초과 방지)")
+#         text = text[:MAX_ATTACHMENT_CHARS]
+#
+#     prompt_path = os.path.join("parquet_template", "rendered", paths.DOMAIN, "prompts", "summarize_attachment.txt")
+#
+#     with open(prompt_path, "r", encoding="utf-8") as f:
+#         prompt = f.read().strip()
+#
+#     client = openai.OpenAI(
+#         api_key=os.environ.get("LLM_API_KEY"),
+#     )
+#     try:
+#         response = client.chat.completions.create(
+#             model=os.getenv("SUB_TASK_CHAT_MODEL"), 
+#             messages=[
+#                 {"role": "system", "content": prompt},
+#                 {"role": "user", "content": f"파일명: {filename}\n\n{text}"}
+#             ],
+#             max_completion_tokens=150  
+#         )
+#         return response.choices[0].message.content.strip()
+#     except Exception as e:
+#         print(f"[summarize_attachment error] {filename}: {e}")
+#         # 실패해도 요약 성공 시 규격(max_completion_tokens=150 ≈ 한글 300자)에 맞춰 반환한다
+#         return text[:300]
 
 # 요약된 첨부 텍스트를 mail_latest.txt의 각 메일 블록 끝에 삽입해 파일을 다시 쓴다
-def _merge_summarized_attachments(mail_latest_path: str, attachment_texts_by_mail: dict):
-    if not os.path.exists(mail_latest_path):
-        return
-
-    with open(mail_latest_path, "r", encoding="utf-8") as f:
-        content = f.read()
-
-    parts = content.split(MAIL_BLOCK_SEP)
-    merged_blocks = []
-
-    for part in parts:
-        block = part.strip()
-        if not block:
-            continue
-
-        # 구분선 복원
-        block_text = f"{MAIL_BLOCK_SEP}\n{block}\n{MAIL_BLOCK_SEP}"
-
-        # 블록에서 메일 ID 추출
-        m = re.search(r"^\s*\[ID\]\s*(.+?)\s*$", block_text, re.MULTILINE)
-        mail_id = m.group(1).strip() if m else None
-
-        # 해당 메일 ID에 첨부 내용이 없으면 그대로 추가
-        if not mail_id or mail_id not in attachment_texts_by_mail:
-            merged_blocks.append(block_text)
-            continue
-
-        # 첨부 내용 섹션 생성
-        attachment_section = "\n[첨부파일 추출 내용]\n"
-        for i, item in enumerate(attachment_texts_by_mail[mail_id], start=1):
-            attachment_section += f"File {i}: {item['name']}\n{item['text']}\n\n"
-        attachment_section = attachment_section.rstrip() + "\n"
-
-        # 블록 하단(마지막 구분선 직전)에 첨부 내용 삽입
-        insert_pos = block_text.rfind(MAIL_BLOCK_SEP)
-        if insert_pos == -1:
-            merged_blocks.append(block_text + attachment_section)
-        else:
-            merged_blocks.append(
-                block_text[:insert_pos].rstrip() + "\n\n" +
-                attachment_section.rstrip() + "\n" +
-                MAIL_BLOCK_SEP
-            )
-
-    # 병합 결과를 mail_latest.txt에 덮어씀
-    with open(mail_latest_path, "w", encoding="utf-8") as f:
-        f.write("\n".join(merged_blocks) + "\n")
+# [메일 제거]
+# def _merge_summarized_attachments(mail_latest_path: str, attachment_texts_by_mail: dict):
+#     if not os.path.exists(mail_latest_path):
+#         return
+#
+#     with open(mail_latest_path, "r", encoding="utf-8") as f:
+#         content = f.read()
+#
+#     parts = content.split(MAIL_BLOCK_SEP)
+#     merged_blocks = []
+#
+#     for part in parts:
+#         block = part.strip()
+#         if not block:
+#             continue
+#
+#         # 구분선 복원
+#         block_text = f"{MAIL_BLOCK_SEP}\n{block}\n{MAIL_BLOCK_SEP}"
+#
+#         # 블록에서 메일 ID 추출
+#         m = re.search(r"^\s*\[ID\]\s*(.+?)\s*$", block_text, re.MULTILINE)
+#         mail_id = m.group(1).strip() if m else None
+#
+#         # 해당 메일 ID에 첨부 내용이 없으면 그대로 추가
+#         if not mail_id or mail_id not in attachment_texts_by_mail:
+#             merged_blocks.append(block_text)
+#             continue
+#
+#         # 첨부 내용 섹션 생성
+#         attachment_section = "\n[첨부파일 추출 내용]\n"
+#         for i, item in enumerate(attachment_texts_by_mail[mail_id], start=1):
+#             attachment_section += f"File {i}: {item['name']}\n{item['text']}\n\n"
+#         attachment_section = attachment_section.rstrip() + "\n"
+#
+#         # 블록 하단(마지막 구분선 직전)에 첨부 내용 삽입
+#         insert_pos = block_text.rfind(MAIL_BLOCK_SEP)
+#         if insert_pos == -1:
+#             merged_blocks.append(block_text + attachment_section)
+#         else:
+#             merged_blocks.append(
+#                 block_text[:insert_pos].rstrip() + "\n\n" +
+#                 attachment_section.rstrip() + "\n" +
+#                 MAIL_BLOCK_SEP
+#             )
+#
+#     # 병합 결과를 mail_latest.txt에 덮어씀
+#     with open(mail_latest_path, "w", encoding="utf-8") as f:
+#         f.write("\n".join(merged_blocks) + "\n")
 
 
 # graphrag_parquet2json.py를 서브프로세스로 실행해 parquet을 그래프 시각화용 JSON으로 변환한다
@@ -1107,8 +1111,9 @@ def build_graphrag_update(job_id,paths, env):
         watcher.join(timeout=5)
 
 
-# 첨부 요약 → GraphRAG 인덱싱 → 그래프 JSON → 통계/DB 저장 → 아바타 생성까지 전체 인덱싱 파이프라인을 실행한다
-def run_graph_pipeline(job_id, paths, env, attachment_texts_by_mail=None, added_count=0, max_mails=None, mail_platform="gmail"):
+# GraphRAG 인덱싱 → 그래프 JSON → 통계/DB 저장 → 아바타 생성까지 전체 인덱싱 파이프라인을 실행한다
+# [메일 제거] 기존 시그니처: def run_graph_pipeline(job_id, paths, env, attachment_texts_by_mail=None, added_count=0, max_mails=None, mail_platform="gmail"):
+def run_graph_pipeline(job_id, paths, env, added_count=0, max_mails=None, mail_platform="gmail"):
     print(f"[JOB][pipeline] START job_id={job_id}")
     append_job_log(job_id, "[START] run_graph_pipeline")
 
@@ -1117,25 +1122,26 @@ def run_graph_pipeline(job_id, paths, env, attachment_texts_by_mail=None, added_
     try:
         update_job(job_id, progress=0, status="running", message="작업 시작")
 
-        # 첨부파일 요약 후 mail_latest.txt에 병합 (백그라운드에서 처리)
-        if attachment_texts_by_mail:
-            print(f"[JOB][summarize] START job_id={job_id}")
-            update_job(job_id, progress=5, message="첨부파일 요약 중")
-
-            # 각 첨부파일 텍스트를 요약으로 교체
-            summarized_by_mail = {}
-            for mail_id, items in attachment_texts_by_mail.items():
-                summarized_by_mail[mail_id] = [
-                    {
-                        "name": item["name"],
-                        "text": _summarize_attachment_text(item["text"], paths, item["name"])
-                    }
-                    for item in items
-                ]
-
-            # 요약된 첨부 내용을 mail_latest.txt 각 블록에 삽입
-            _merge_summarized_attachments(paths.MAIL_LATEST_PATH, summarized_by_mail)
-            print(f"[JOB][summarize] DONE job_id={job_id}")
+        # [메일 제거]
+        # # 첨부파일 요약 후 mail_latest.txt에 병합 (백그라운드에서 처리)
+        # if attachment_texts_by_mail:
+        #     print(f"[JOB][summarize] START job_id={job_id}")
+        #     update_job(job_id, progress=5, message="첨부파일 요약 중")
+        #
+        #     # 각 첨부파일 텍스트를 요약으로 교체
+        #     summarized_by_mail = {}
+        #     for mail_id, items in attachment_texts_by_mail.items():
+        #         summarized_by_mail[mail_id] = [
+        #             {
+        #                 "name": item["name"],
+        #                 "text": _summarize_attachment_text(item["text"], paths, item["name"])
+        #             }
+        #             for item in items
+        #         ]
+        #
+        #     # 요약된 첨부 내용을 mail_latest.txt 각 블록에 삽입
+        #     _merge_summarized_attachments(paths.MAIL_LATEST_PATH, summarized_by_mail)
+        #     print(f"[JOB][summarize] DONE job_id={job_id}")
 
         timer = start_timer() #인덱싱 시간 측정용, 측정 시작
         build_graphrag_index(job_id, paths, env, max_mails=max_mails)
@@ -1147,68 +1153,38 @@ def run_graph_pipeline(job_id, paths, env, attachment_texts_by_mail=None, added_
 
         target_update_date = time_result["ended_at"]
 
-        if paths.DOMAIN == "messenger":
-            _extract_message_statics_pipeline(paths, mode='rewrite')
+        _extract_message_statics_pipeline(paths, mode='rewrite')
 
-            blocks = _parse_message_blocks_from_parquet(paths)
-            chatroom_name = blocks[0]["chatroom_name"] if blocks else paths.USER_ID
+        blocks = _parse_message_blocks_from_parquet(paths)
+        chatroom_name = blocks[0]["chatroom_name"] if blocks else paths.USER_ID
 
-            create_chatroom(
-                chatroom_id=paths.USER_ID,
-                chatroom_name=chatroom_name,
-                ended_at=target_update_date,
-                index_time=formatted_time,
-                message_count=count_total_messages(paths),
-                message_platform=mail_platform,
-            )
-            indexing_stats = collect_indexing_stats(paths)
-            update_chatroom_indexing_stats(paths.USER_ID, target_update_date, indexing_stats)
-            save_chatroom_graph_stats_to_db(paths, target_update_date)
+        create_chatroom(
+            chatroom_id=paths.USER_ID,
+            chatroom_name=chatroom_name,
+            ended_at=target_update_date,
+            index_time=formatted_time,
+            message_count=count_total_messages(paths),
+            message_platform=mail_platform,
+        )
+        indexing_stats = collect_indexing_stats(paths)
+        update_chatroom_indexing_stats(paths.USER_ID, target_update_date, indexing_stats)
+        save_chatroom_graph_stats_to_db(paths, target_update_date)
 
-            save_message_block_to_db(paths, target_update_date)
+        save_message_block_to_db(paths, target_update_date)
 
-            _run_and_join([
-                (save_chatroom_people_to_db, (paths, target_update_date)),
-                (save_message_keyword_to_db, (paths, target_update_date)),
-                (generate_message_summaries, (paths,)),
-            ])
+        _run_and_join([
+            (save_chatroom_people_to_db, (paths, target_update_date)),
+            (save_message_keyword_to_db, (paths, target_update_date)),
+            (generate_message_summaries, (paths,)),
+        ])
 
-            save_chatroom_relationships_to_db(paths, target_update_date)
-            recompute_all_message_moods(paths)
+        save_chatroom_relationships_to_db(paths, target_update_date)
+        recompute_all_message_moods(paths)
 
-            try:
-                generate_chatroom_people_avatars_batch(paths)
-            except Exception as e:
-                print(f"[JOB] 참여자 아바타 생성 실패 (인덱싱은 계속 진행): {e}")
-        else:
-            _extract_statics_pipeline(paths, mode='rewrite')
-
-            create_mail_account(
-                    user_mail_account_id=paths.USER_ID,
-                    ended_at=target_update_date,
-                    index_time=formatted_time,
-                    mail_count=added_count,
-                    mail_platform=mail_platform,
-                )
-            indexing_stats = collect_indexing_stats(paths)
-            update_mail_account_indexing_stats(paths.USER_ID, None, indexing_stats)
-            save_graph_stats_to_db(paths, target_update_date)
-
-            save_mail_folder_to_db(paths, target_update_date)
-
-            save_person_stats_to_db(paths, target_update_date)
-
-            _run_and_join([
-                (save_mail_to_db, (paths, target_update_date)),
-                (save_keyword_stats_to_db, (paths, target_update_date)),
-                (generate_mail_summaries, (paths,)),
-            ])
-
-            try:
-                generate_all_person_avatars(paths)
-            except Exception as e:
-                print(f"[JOB] 연락처 아바타 생성 실패 (인덱싱은 계속 진행): {e}")
-
+        try:
+            generate_chatroom_people_avatars_batch(paths)
+        except Exception as e:
+            print(f"[JOB] 참여자 아바타 생성 실패 (인덱싱은 계속 진행): {e}")
 
         update_job(job_id, progress=100, status="done", message="인덱싱 완료")
         broadcast({"type": "done", "job_id": job_id, "message": "인덱싱 완료"})
@@ -1240,44 +1216,24 @@ def run_graph_update_pipeline(job_id, paths, env):
         # 2단계: json 생성 
         build_graph_json(job_id,paths, env)
 
-        if paths.DOMAIN == "messenger":
-            _extract_message_statics_pipeline(paths, mode='append')
-            indexing_stats = collect_indexing_stats(paths)
-            update_chatroom_indexing_stats(paths.USER_ID, None, indexing_stats)
-            save_chatroom_graph_stats_to_db(paths)
+        _extract_message_statics_pipeline(paths, mode='append')
+        indexing_stats = collect_indexing_stats(paths)
+        update_chatroom_indexing_stats(paths.USER_ID, None, indexing_stats)
+        save_chatroom_graph_stats_to_db(paths)
 
-            save_message_block_to_db(paths)
+        save_message_block_to_db(paths)
 
-            _run_and_join([
-                (save_chatroom_people_to_db, (paths,)),
-                (save_message_keyword_to_db, (paths,)),
-            ])
+        _run_and_join([
+            (save_chatroom_people_to_db, (paths,)),
+            (save_message_keyword_to_db, (paths,)),
+        ])
 
-            save_chatroom_relationships_to_db(paths)
+        save_chatroom_relationships_to_db(paths)
 
-            try:
-                generate_chatroom_people_avatars_batch(paths)
-            except Exception as e:
-                print(f"[JOB] 참여자 아바타 생성 실패 (인덱싱은 계속 진행): {e}")
-        else:
-            _extract_statics_pipeline(paths, mode='append')
-            indexing_stats = collect_indexing_stats(paths)
-            update_mail_account_indexing_stats(paths.USER_ID, None, indexing_stats)
-            save_graph_stats_to_db(paths)
-
-            save_mail_folder_to_db(paths)
-
-            save_person_stats_to_db(paths)
-
-            _run_and_join([
-                (save_mail_to_db, (paths,)),
-                (save_keyword_stats_to_db, (paths,)),
-            ])
-
-            try:
-                generate_all_person_avatars(paths)
-            except Exception as e:
-                print(f"[JOB] 연락처 아바타 생성 실패 (인덱싱은 계속 진행): {e}")
+        try:
+            generate_chatroom_people_avatars_batch(paths)
+        except Exception as e:
+            print(f"[JOB] 참여자 아바타 생성 실패 (인덱싱은 계속 진행): {e}")
 
         update_job(job_id, progress=100, status="done", message="업데이트 완료")
         broadcast({"type": "done", "job_id": job_id, "message": "업데이트 완료"})
@@ -1294,14 +1250,15 @@ def run_graph_update_pipeline(job_id, paths, env):
 
 
 # 인덱싱 파이프라인을 데몬 스레드로 백그라운드 실행하고 스레드 객체를 반환한다
-def start_graph_pipeline_background(job_id, paths, env, attachment_texts_by_mail=None, added_count=0, max_mails=None,  mail_platform="gmail"):
+# [메일 제거] 기존 시그니처: def start_graph_pipeline_background(job_id, paths, env, attachment_texts_by_mail=None, added_count=0, max_mails=None,  mail_platform="gmail"):
+def start_graph_pipeline_background(job_id, paths, env, added_count=0, max_mails=None,  mail_platform="gmail"):
     print(f"[JOB][pipeline] BACKGROUND START job_id={job_id}")
     append_job_log(job_id, "[INFO] background thread starting")
 
     # 새로운 스레드 생성
     t = threading.Thread(
         target=run_graph_pipeline,  # 실행할 함수: 그래프라그 파이프라인 (인덱싱) 실행 함수
-        args=(job_id, paths, env.copy(), attachment_texts_by_mail, added_count, max_mails, mail_platform),
+        args=(job_id, paths, env.copy(), added_count, max_mails, mail_platform),
         daemon=True,                # app.py 종료 시 같이 종료
     )
     t.start()  # 스레드 실행 (비동기 시작)

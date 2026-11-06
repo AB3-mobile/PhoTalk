@@ -26,11 +26,12 @@ from flask import (
     stream_with_context
 )
 from flask_cors import CORS
-from docx import Document
-import olefile
-import csv
-from pptx import Presentation
-from openpyxl import load_workbook
+# [메일 제거]
+# from docx import Document
+# import olefile
+# import csv
+# from pptx import Presentation
+# from openpyxl import load_workbook
 
 # Job 이용 공통함수 import
 from util.jobs.job_store import *
@@ -42,32 +43,36 @@ from util.jobs.job_run_graphrag import (
     start_graph_update_pipeline_background
 )
 
-# 날짜 범위 질의(예: "어제 대화 보여줘") 처리 함수
-from util.graphrag_date_query import run_date_range_query
+# [메일 제거]
+# # 날짜 범위 질의(예: "어제 대화 보여줘") 처리 함수
+# from util.graphrag_date_query import run_date_range_query
 
 from util.user_path import UserPaths, list_accounts, list_indexed_user_ids, set_account_room_name
 from util.file_manager import (
     _sanitize_filename
 )
-from util.attachment_manager import (
-    _save_attachment_from_base64,
-    _extract_text_from_pdf,
-    _extract_text_from_docx,
-    _extract_text_from_hwp,
-    _extract_text_from_txt,
-    _extract_text_from_pptx,
-    _extract_text_from_xlsx,
-    _extract_text_from_csv,
-)
-from util.jobs.job_run_graphrag import (
-    _summarize_attachment_text,
-    _merge_summarized_attachments,
-    render_all_prompts,
-)
+# [메일 제거]
+# from util.attachment_manager import (
+#     _save_attachment_from_base64,
+#     _extract_text_from_pdf,
+#     _extract_text_from_docx,
+#     _extract_text_from_hwp,
+#     _extract_text_from_txt,
+#     _extract_text_from_pptx,
+#     _extract_text_from_xlsx,
+#     _extract_text_from_csv,
+# )
+# [메일 제거]
+# from util.jobs.job_run_graphrag import (
+#     _summarize_attachment_text,
+#     _merge_summarized_attachments,
+#     render_all_prompts,
+# )
 from util.database.db_writer import (
     save_query_to_db,
-    filter_unprocessed_attachments,
-    mark_attachments_as_processed,
+    # [메일 제거]
+    # filter_unprocessed_attachments,
+    # mark_attachments_as_processed,
 )
 from util.database.chatroom_reader import (
     list_indexed_chatrooms,
@@ -91,7 +96,6 @@ from util.database.chatroom_reader import (
     get_chatroom_day_messages,
     get_chatroom_summaries,
 )
-from util.extract_statics import start_statics_pipeline_background
 from util.avatar_generator import (
     get_cached_chatroom_people_avatars,
 )
@@ -110,6 +114,11 @@ from util.graphrag_query import _classify_query_method
 # 이 계정의 인덱싱 완료 여부를 반환한다
 def _index_ready(paths) -> bool:
     return _is_index_ready(paths)
+
+# 요청의 domain 값을 확인한다 (없으면 messenger, 지원하지 않는 값이면 None). 메일 도메인은 DB에서 제거됐다.
+def _parse_domain(value):
+    domain = (value or "messenger").strip().lower()
+    return domain if domain == "messenger" else None
 from util.mail_data_manager import (
     _read_latest_text,
     _extract_message_ids,
@@ -160,7 +169,10 @@ def run_query_async():
     resMethod = request.json.get('resMethod', 'local')
     resType = request.json.get('resType', 'text')
     user_id = data.get('user_id', '').strip()
-    domain = (data.get('domain') or 'mail').strip().lower()
+    domain = _parse_domain(data.get('domain'))
+
+    if domain is None:
+        return jsonify({'error': '지원하지 않는 domain입니다.'}), 400
 
     if not str(message).strip():
         return jsonify({'error': 'message가 비어있습니다.'}), 400
@@ -190,8 +202,10 @@ def run_query_async():
 
             fallback_paths = accounts_paths[0]
 
-            # accounts_paths 전체(인덱싱된 계정 전부)를 대상으로 연합해서 필터링한다.
-            answer = run_date_range_query(message, accounts_paths) if domain == "mail" else None # 이게 None이면 GraphRAG로
+            # [메일 제거]
+            # # accounts_paths 전체(인덱싱된 계정 전부)를 대상으로 연합해서 필터링한다.
+            # answer = run_date_range_query(message, accounts_paths) if domain == "mail" else None # 이게 None이면 GraphRAG로
+            answer = None
             source_ids = []  # 초기화
             if answer is None:
                 full_message = message + " 영어 말고 한국어로 답변해줘."
@@ -322,7 +336,7 @@ def run_query():
     if not user_id:
         return jsonify({'error': 'user_id가 비어있습니다.'}), 400
 
-    paths = UserPaths(BASE_DIR, user_id, "mail")
+    paths = UserPaths(BASE_DIR, user_id, "messenger")
     message += " 영어 말고 한국어로 답변해줘."
 
     try:
@@ -334,42 +348,43 @@ def run_query():
     return jsonify({'result': answer})
 
 # 미처리 첨부파일의 텍스트를 추출·요약해 mail_latest.txt에 병합하고 처리 완료로 기록한다 (인덱싱 시작 전에 실행)
-def _extract_and_merge_attachments(paths, attachments, user_id):
-    unprocessed = filter_unprocessed_attachments(user_id, attachments)
-    if not unprocessed:
-        return
-
-    # 프롬프트의 최신 상태 유지
-    render_all_prompts()
-
-    attachment_texts_by_mail: dict[str, list[dict]] = {}
-    for file_info in unprocessed:
-        f_name = file_info.get("name") or "attachment.bin"
-        mail_id = str(file_info.get("mail_id") or "").strip()
-        try:
-            saved_path, original_name = _save_attachment_from_base64(file_info, paths.ATTACHMENT_DIR)
-            ext = os.path.splitext(original_name)[-1].lower()
-            mime = (file_info.get("mime") or "").lower()
-            file_text = ""
-            if ext == ".pdf" or "pdf" in mime:      file_text = _extract_text_from_pdf(saved_path)
-            elif ext == ".docx":                     file_text = _extract_text_from_docx(saved_path)
-            elif ext == ".hwp":                      file_text = _extract_text_from_hwp(saved_path)
-            elif ext == ".txt" or "plain" in mime:   file_text = _extract_text_from_txt(saved_path)
-            elif ext == ".pptx":                     file_text = _extract_text_from_pptx(saved_path)
-            elif ext == ".xlsx":                     file_text = _extract_text_from_xlsx(saved_path)
-            elif ext == ".csv":                      file_text = _extract_text_from_csv(saved_path)
-
-            if file_text and file_text.strip():
-                summary = _summarize_attachment_text(file_text.strip(), paths, original_name)
-                attachment_texts_by_mail.setdefault(mail_id, []).append({"name": original_name, "text": summary})
-        except Exception as e:
-            print(f"[UPLOAD] 첨부파일 추출 실패 {f_name}: {e}")
-
-    if attachment_texts_by_mail:
-        _merge_summarized_attachments(paths.MAIL_LATEST_PATH, attachment_texts_by_mail)
-        print(f"[UPLOAD] 첨부파일 {len(attachment_texts_by_mail)}건 본문에 병합 완료")
-
-    mark_attachments_as_processed(user_id, unprocessed)
+# [메일 제거]
+# def _extract_and_merge_attachments(paths, attachments, user_id):
+#     unprocessed = filter_unprocessed_attachments(user_id, attachments)
+#     if not unprocessed:
+#         return
+#
+#     # 프롬프트의 최신 상태 유지
+#     render_all_prompts()
+#
+#     attachment_texts_by_mail: dict[str, list[dict]] = {}
+#     for file_info in unprocessed:
+#         f_name = file_info.get("name") or "attachment.bin"
+#         mail_id = str(file_info.get("mail_id") or "").strip()
+#         try:
+#             saved_path, original_name = _save_attachment_from_base64(file_info, paths.ATTACHMENT_DIR)
+#             ext = os.path.splitext(original_name)[-1].lower()
+#             mime = (file_info.get("mime") or "").lower()
+#             file_text = ""
+#             if ext == ".pdf" or "pdf" in mime:      file_text = _extract_text_from_pdf(saved_path)
+#             elif ext == ".docx":                     file_text = _extract_text_from_docx(saved_path)
+#             elif ext == ".hwp":                      file_text = _extract_text_from_hwp(saved_path)
+#             elif ext == ".txt" or "plain" in mime:   file_text = _extract_text_from_txt(saved_path)
+#             elif ext == ".pptx":                     file_text = _extract_text_from_pptx(saved_path)
+#             elif ext == ".xlsx":                     file_text = _extract_text_from_xlsx(saved_path)
+#             elif ext == ".csv":                      file_text = _extract_text_from_csv(saved_path)
+#
+#             if file_text and file_text.strip():
+#                 summary = _summarize_attachment_text(file_text.strip(), paths, original_name)
+#                 attachment_texts_by_mail.setdefault(mail_id, []).append({"name": original_name, "text": summary})
+#         except Exception as e:
+#             print(f"[UPLOAD] 첨부파일 추출 실패 {f_name}: {e}")
+#
+#     if attachment_texts_by_mail:
+#         _merge_summarized_attachments(paths.MAIL_LATEST_PATH, attachment_texts_by_mail)
+#         print(f"[UPLOAD] 첨부파일 {len(attachment_texts_by_mail)}건 본문에 병합 완료")
+#
+#     mark_attachments_as_processed(user_id, unprocessed)
 
 # 메일/대화 텍스트를 받아 mail_latest.txt에 누적(rewrite/append, mail_id 중복 체크)하고 인덱싱 파이프라인을 시작한다
 @app.route("/upload", methods=["POST"])
@@ -382,10 +397,10 @@ def upload():
     attachments = data.get("attachment") or []
     requested_mode = data.get("syncmode", "append")
     user_id = (data.get("user_id") or "").strip().lower()
-    domain = (data.get("domain") or "mail").strip().lower()
-    # 메일은 최신 메일이 위로 오는 "받은편지함" 순서를, 카카오는 대화를 처음부터 읽어내려가는
-    # "대화 기록" 순서(오래된 게 위)를 기대하므로 도메인별로 정렬 방향을 다르게 함.
-    sort_newest_first = domain != "messenger"
+    domain = _parse_domain(data.get("domain"))
+
+    if domain is None:
+        return jsonify({"ok": False, "error": "지원하지 않는 domain입니다."}), 400
 
     paths = UserPaths(BASE_DIR, user_id, domain)
 
@@ -442,23 +457,6 @@ def upload():
             except Exception as e:
                 print(f"[CLEAN] 인덱스 준비 마커 삭제 실패 (무시): {e}")
 
-        try:
-            from util.database.db_writer import get_latest_mail_account
-            latest_account = get_latest_mail_account(user_id)
-            if latest_account:
-                conn = get_db_connection()
-                cursor = conn.cursor()
-                cursor.execute(
-                    "DELETE FROM processed_attachments WHERE user_mail_account_id = %s AND index_date = %s",
-                    (latest_account["user_mail_account_id"], latest_account["index_date"])
-                )
-                conn.commit()
-                cursor.close()
-                conn.close()
-            print(f"[CLEAN] processed_attachments DB 초기화 완료 (user_id={user_id})")
-        except Exception as e:
-            print(f"[CLEAN] processed_attachments DB 초기화 실패 (무시): {e}")
-
     # 3) 원본 메일 텍스트 저장 (append 모드만 — rewrite는 mail_latest.txt에 바로 씀)
     if sync_mode != "rewrite":
         file_path = os.path.join(paths.MAIL_DIR, filename)
@@ -467,15 +465,17 @@ def upload():
 
     extracted_count = 0
     failed_attachments = []
-    valid_attachments = []
+    # [메일 제거]
+    # valid_attachments = []
 
-    # 4) 첨부파일 메타데이터 카운트
-    for file_info in attachments:
-        f_name = file_info.get("name") or "attachment.bin"
-        mail_id = str(file_info.get("mail_id") or "").strip()
-        if f_name and mail_id:
-            extracted_count += 1
-            valid_attachments.append(file_info)
+    # [메일 제거]
+    # # 4) 첨부파일 메타데이터 카운트
+    # for file_info in attachments:
+    #     f_name = file_info.get("name") or "attachment.bin"
+    #     mail_id = str(file_info.get("mail_id") or "").strip()
+    #     if f_name and mail_id:
+    #         extracted_count += 1
+    #         valid_attachments.append(file_info)
 
     # 5) 로그
     print(f"[UPLOAD] Received filename: {filename}")
@@ -535,7 +535,7 @@ def upload():
         _delete_incremental_files(paths)
 
     if append_blocks:
-        append_blocks.sort(key=_extract_block_for_sort, reverse=sort_newest_first)
+        append_blocks.sort(key=_extract_block_for_sort)  # 대화 기록 순서 (오래된 게 위)
         inc_content = "\n\n".join(append_blocks).strip() + "\n"
         if sync_mode == "rewrite":
             with open(paths.MAIL_LATEST_PATH, "w", encoding="utf-8") as f:
@@ -564,23 +564,6 @@ def upload():
             if mid:
                 new_ids.add(mid)
 
-        # 이메일 전용 statics 파이프라인
-        if domain == "mail":
-            statics_job_id = str(uuid.uuid4())[:8]
-            create_job(statics_job_id, job_type="statics")
-
-            if sync_mode == "rewrite":
-                final_text = _read_latest_text(paths)
-                statics_blocks = _split_mail_blocks(final_text)
-                statics_blocks = [b for b in statics_blocks if _extract_mail_id_from_block(b)]
-            else:
-                statics_blocks = append_blocks
-
-            start_statics_pipeline_background(
-                statics_job_id, paths,
-                mode="rewrite" if sync_mode == "rewrite" else "append"
-            )
-
     else:
         saved_mail_path = ""
         new_ids = set()
@@ -603,9 +586,10 @@ def upload():
     env = os.environ.copy()
     env["PYTHONUNBUFFERED"] = "1"
 
-    # 첨부파일은 CSV 빌드 전에 텍스트 추출/요약해서 mail_latest.txt에 미리 병합해둔다 
-    if valid_attachments:
-        _extract_and_merge_attachments(paths, valid_attachments, user_id)
+    # [메일 제거]
+    # # 첨부파일은 CSV 빌드 전에 텍스트 추출/요약해서 mail_latest.txt에 미리 병합해둔다 
+    # if valid_attachments:
+    #     _extract_and_merge_attachments(paths, valid_attachments, user_id)
 
     if sync_mode == "rewrite":
         update_dir = os.path.join(paths.GRAPHRAG_ROOT, "update_output")
@@ -669,7 +653,10 @@ def graph_data():
         return "", 200
 
     user_id = (request.args.get("user_id") or "").strip().lower()
-    domain = (request.args.get("domain") or "mail").strip().lower()
+    domain = _parse_domain(request.args.get("domain"))
+
+    if domain is None:
+        return jsonify({"ok": False, "error": "지원하지 않는 domain입니다."}), 400
 
     if not user_id:
         return jsonify({"ok": False, "error": "user_id가 비어있습니다."}), 400
@@ -1315,7 +1302,11 @@ def message_preview():
 # 해당 도메인의 계정(또는 대화방) 목록을 반환한다
 @app.route("/accounts", methods=["GET"])
 def accounts_route():
-    domain = (request.args.get("domain") or "mail").strip().lower()
+    domain = _parse_domain(request.args.get("domain"))
+
+    if domain is None:
+        return jsonify({"error": "지원하지 않는 domain입니다."}), 400
+
     return jsonify({"accounts": list_accounts(BASE_DIR, domain)})
 
 
