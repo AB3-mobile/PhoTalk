@@ -47,4 +47,28 @@ class AppColors {
   static const Color disabled = Color(0xFFC9D0EC);
   // 활성 버튼 그라데이션의 시작(왼쪽) 색 (임시값)
   static const Color buttonStart = Color(0xFF4A67E3);
+
+  // 지식 그래프의 중앙(대화방) 노드 색 (임시값)
+  static const Color nodeRoom = Color(0xFF2F4FD0);
+  // 지식 그래프의 인물 노드 색 (임시값)
+  static const Color nodePerson = Color(0xFF8E9DEB);
+  // 지식 그래프의 키워드 노드 색 (임시값)
+  static const Color nodeKeyword = Color(0xFF4FA3E6);
+  // 지식 그래프의 파일 노드 색 (임시값)
+  static const Color nodeFile = Color(0xFF7FE0F2);
+  // 지식 그래프의 사진 노드 색 (임시값)
+  static const Color nodePhoto = Color(0xFFB9D6F2);
+  // 인물과 중앙을 잇는 굵은 선 색 (임시값)
+  static const Color edgeStrong = Color(0xFF9AA8EE);
+  // 인물과 항목을 잇는 얇은 선 색 (임시값)
+  static const Color edgeThin = Color(0xFFB8C4EE);
+  // 인물끼리 잇는 보조 점선 색 (임시값)
+  static const Color edgeDotted = Color(0xFFC9D1EE);
+
+  // 지식 그래프의 날짜 노드 색 (임시값)
+  static const Color nodeDate = Color(0xFFB9C1E4);
+  // 지식 그래프의 고유명사(개체) 노드 색 (임시값)
+  static const Color nodeEntity = Color(0xFFE6A1C8);
+  // 지식 그래프의 이벤트 노드 색 (임시값)
+  static const Color nodeEvent = Color(0xFFA98BF0);
 }

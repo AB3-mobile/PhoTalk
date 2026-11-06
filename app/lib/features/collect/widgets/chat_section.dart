@@ -12,12 +12,15 @@ class ChatSection extends StatelessWidget {
     super.key,
     required this.chats,
     required this.onAdd,
+    this.onTapChat,
     this.progressText,
     this.dragging = false,
   });
 
   final List<PickedChat> chats;
   final VoidCallback onAdd;
+  // 대화방 한 줄을 눌렀을 때 (몇 번째인지 알려 준다, 없으면 눌러도 반응 없음)
+  final void Function(int index)? onTapChat;
   // 업로드·인덱싱 중일 때 보여줄 문구 (없으면 '+ 대화방 추가' 버튼을 보여준다)
   final String? progressText;
   // 파일을 끌어서 카드 위에 올려 둔 상태인지 (true면 강조 표시)
@@ -33,8 +36,8 @@ class ChatSection extends StatelessWidget {
       badgeDone: chats.isNotEmpty,
       child: Column(
         children: [
-          for (final chat in chats) ...[
-            _ChatRow(chat: chat),
+          for (var i = 0; i < chats.length; i++) ...[
+            _ChatRow(chat: chats[i], onTap: onTapChat == null ? null : () => onTapChat!(i)),
             const SizedBox(height: 8),
           ],
           DashedBox(
@@ -65,19 +68,22 @@ class ChatSection extends StatelessWidget {
 
 // 가져온 대화방 한 줄 (이름, 참여자 수, 메시지 수, 화살표)
 class _ChatRow extends StatelessWidget {
-  const _ChatRow({required this.chat});
+  const _ChatRow({required this.chat, this.onTap});
 
   final PickedChat chat;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return Material(
+      color: AppColors.rowBg,
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: onTap,
+        child: Container(
       height: 56,
       padding: const EdgeInsets.symmetric(horizontal: 14),
-      decoration: BoxDecoration(
-        color: AppColors.rowBg,
-        borderRadius: BorderRadius.circular(12),
-      ),
       child: Row(
         children: [
           Expanded(
@@ -96,6 +102,8 @@ class _ChatRow extends StatelessWidget {
           ),
           const Icon(Icons.chevron_right_rounded, size: 20, color: AppColors.chevron),
         ],
+      ),
+        ),
       ),
     );
   }

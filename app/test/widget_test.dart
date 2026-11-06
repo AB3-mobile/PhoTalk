@@ -15,7 +15,8 @@ void main() {
     await tester.tap(find.text('시작하기'));
     await tester.pumpAndSettle();
 
-    expect(find.text('데이터 수집'), findsOneWidget);
+    // 화면 제목과 왼쪽 메뉴 항목에 같은 글자가 있어 하나 이상 있는지만 확인한다
+    expect(find.text('데이터 수집'), findsWidgets);
     expect(find.text('+ 대화방 추가'), findsOneWidget);
   });
 }
