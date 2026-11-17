@@ -1,11 +1,15 @@
 import 'dart:math' as math;
+import 'dart:ui' as ui;
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
+import 'package:provider/provider.dart';
 
 import '../../core/app_colors.dart';
 import '../../core/app_text.dart';
 import '../../domain/models/graph_data.dart';
+import '../../domain/repositories/photo_repository.dart';
 import 'force_simulation.dart';
 
 // 노드 종류별 색 (서버 entity_type 기준)
@@ -83,6 +87,10 @@ class _ForceGraphViewState extends State<ForceGraphView> with SingleTickerProvid
   // 선택된 노드와 드래그 중인 노드 (없으면 -1)
   int _selected = -1;
   int _dragging = -1;
+  // 마우스를 올린 노드 (없으면 -1)
+  int _hovered = -1;
+  // 인물 이름별 얼굴 사진 (업로드한 사진에서 얼굴만 잘라낸 것, 없으면 null)
+  final Map<String, ui.Image?> _faces = {};
   // 제스처 시작 시점의 값
   double _baseScale = 1;
   Offset _baseOffset = Offset.zero;
@@ -96,10 +104,14 @@ class _ForceGraphViewState extends State<ForceGraphView> with SingleTickerProvid
     _enabled = <String>{};
     _ticker = createTicker(_onTick);
     _rebuild();
+    _loadFaces();
   }
 
   @override
   void dispose() {
+    for (final img in _faces.values) {
+      img?.dispose();
+    }
     _ticker.dispose();
     _rev.dispose();
     super.dispose();
@@ -160,6 +172,7 @@ class _ForceGraphViewState extends State<ForceGraphView> with SingleTickerProvid
     _adj = adj;
     _radius = radius;
     _selected = -1;
+    _hovered = -1;
     _labels.clear();
     _sim = ForceSimulation(radius: radius, links: links, seed: [for (final n in nodes) old[n.id]]);
     // 처음 보여 주기 전에 미리 돌려 어느 정도 자리를 잡아 둔다
@@ -170,6 +183,58 @@ class _ForceGraphViewState extends State<ForceGraphView> with SingleTickerProvid
     _needFit = true;
     _rev.value++;
     _wake(0.3);
+  }
+
+  // 그래프의 인물 노드마다 서버에서 얼굴 사진을 받아 둔다 (저장된 얼굴이 없는 사람은 null)
+  Future<void> _loadFaces() async {
+    final repo = context.read<PhotoRepository>();
+    final names = {for (final n in widget.data.nodes) if (n.entityType == 'PERSON') n.label};
+    await Future.wait(names.map((name) async {
+      ui.Image? img;
+      try {
+        final bytes = await repo.getPersonFace(name);
+        if (bytes != null) {
+          final codec = await ui.instantiateImageCodec(bytes);
+          img = (await codec.getNextFrame()).image;
+        }
+      } catch (_) {
+        // 서버에 연결이 안 되거나 사진이 깨졌으면 얼굴 없이 그린다
+      }
+      if (!mounted) {
+        img?.dispose();
+        return;
+      }
+      _faces[name] = img;
+    }));
+    if (mounted) _rev.value++;
+  }
+
+  // 얼굴을 보여 줄 노드 (마우스를 올린 노드, 없으면 선택한 노드)가 얼굴 사진이 있는 인물이면 그 번호, 아니면 -1
+  int get _faceNode {
+    final i = _hovered >= 0 ? _hovered : _selected;
+    if (i < 0 || i >= _nodes.length || _nodes[i].entityType != 'PERSON') return -1;
+    return _faces[_nodes[i].label] == null ? -1 : i;
+  }
+
+  // 마우스가 움직이면 아래에 있는 노드를 기억하고 다시 그린다
+  void _onHover(PointerHoverEvent e) {
+    // 얼굴로 커진 노드 위에 있는 동안은 원래 크기를 벗어나도 그대로 둔다 (깜빡임 방지)
+    if (_hovered >= 0 && _faceNode == _hovered) {
+      final w = _toWorld(e.localPosition);
+      final r = math.max(_radius[_hovered], 36 / _scale);
+      final dx = _sim.x[_hovered] - w.dx, dy = _sim.y[_hovered] - w.dy;
+      if (dx * dx + dy * dy <= r * r) return;
+    }
+    final h = _hit(e.localPosition);
+    if (h == _hovered) return;
+    setState(() => _hovered = h); // 마우스 모양(손가락)도 바꾼다
+    _rev.value++;
+  }
+
+  void _onExit(PointerExitEvent _) {
+    if (_hovered < 0) return;
+    setState(() => _hovered = -1);
+    _rev.value++;
   }
 
   // 모든 노드가 한눈에 들어오도록 확대 비율과 위치를 맞춘다
@@ -327,13 +392,18 @@ class _ForceGraphViewState extends State<ForceGraphView> with SingleTickerProvid
                 child: Stack(
                   children: [
                     Positioned.fill(
-                      child: GestureDetector(
-                        behavior: HitTestBehavior.opaque,
-                        onTapUp: _onTap,
-                        onScaleStart: _onScaleStart,
-                        onScaleUpdate: _onScaleUpdate,
-                        onScaleEnd: _onScaleEnd,
-                        child: CustomPaint(painter: _ForcePainter(this)),
+                      child: MouseRegion(
+                        cursor: _hovered >= 0 ? SystemMouseCursors.click : MouseCursor.defer,
+                        onHover: _onHover,
+                        onExit: _onExit,
+                        child: GestureDetector(
+                          behavior: HitTestBehavior.opaque,
+                          onTapUp: _onTap,
+                          onScaleStart: _onScaleStart,
+                          onScaleUpdate: _onScaleUpdate,
+                          onScaleEnd: _onScaleEnd,
+                          child: CustomPaint(painter: _ForcePainter(this)),
+                        ),
                       ),
                     ),
                     if (_selected >= 0 && _selected < _nodes.length) Positioned(left: 8, right: 8, bottom: 8, child: _infoCard(_nodes[_selected])),
@@ -426,14 +496,49 @@ class _ForcePainter extends CustomPainter {
         canvas.drawCircle(c, s._radius[i] + 3, Paint()..style = PaintingStyle.stroke..strokeWidth = 2..color = AppColors.accent);
       }
     }
-    // 이름: 충분히 크게 보이는 노드와 선택·이웃 노드에만 쓴다
+    // 이름: 충분히 크게 보이는 노드와 선택·이웃 노드에만 쓴다 (얼굴로 커진 노드는 _paintFace가 원 아래에 따로 쓴다)
+    final faceNode = s._faceNode;
     for (var i = 0; i < nodes.length; i++) {
+      if (i == faceNode) continue;
       final shown = i == sel || (sel >= 0 && near.contains(i)) || s._radius[i] * s._scale >= 9 || s._scale > 1.6;
       if (!shown) continue;
       final tp = _label(nodes[i].label);
       tp.paint(canvas, Offset(sim.x[i] - tp.width / 2, sim.y[i] + s._radius[i] + 2));
     }
+    _paintFace(canvas);
     canvas.restore();
+  }
+
+  // 마우스를 올린(또는 선택한) 인물 노드를 크게 키워 그 안에 얼굴 사진을 그린다 (다른 노드보다 위에)
+  void _paintFace(Canvas canvas) {
+    final i = s._faceNode;
+    if (i < 0) return;
+    final img = s._faces[s._nodes[i].label]!;
+    final c = Offset(s._sim.x[i], s._sim.y[i]);
+    // 확대 비율과 상관없이 화면에서 지름 약 72px 이상으로 보이게 한다
+    final r = math.max(s._radius[i], 36 / s._scale);
+    final circle = Rect.fromCircle(center: c, radius: r);
+
+    canvas.drawCircle(c + Offset(0, 2 / s._scale), r + 1 / s._scale, Paint()
+      ..color = const Color(0x401E2A4A)
+      ..maskFilter = MaskFilter.blur(BlurStyle.normal, 6 / s._scale));
+    canvas.save();
+    canvas.clipPath(Path()..addOval(circle));
+    canvas.drawImageRect(
+      img,
+      Rect.fromLTWH(0, 0, img.width.toDouble(), img.height.toDouble()),
+      circle,
+      Paint()..filterQuality = FilterQuality.medium,
+    );
+    canvas.restore();
+    canvas.drawCircle(c, r, Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 3 / s._scale
+      ..color = _typeColor('PERSON'));
+
+    // 커진 원에 가려진 이름을 원 아래에 다시 쓴다
+    final tp = _label(s._nodes[i].label);
+    tp.paint(canvas, Offset(c.dx - tp.width / 2, c.dy + r + 3 / s._scale));
   }
 
   @override

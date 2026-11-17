@@ -106,7 +106,7 @@ from util.sse_broadcaster import (
 )
 from config.db import get_db_connection
 from util.face_embedder import UnsupportedImageError
-from util.database.photo_db_writer import save_photo, match_photo, get_photo_thumbnail
+from util.database.photo_db_writer import save_photo, match_photo, get_photo_thumbnail, get_person_face_crop
 from util.graphrag import (
     _run_graphrag,
     _is_index_ready
@@ -1354,6 +1354,18 @@ def photo_thumbnail(photo_id):
     if thumb is None:
         return jsonify({"error": "사진이 없습니다."}), 404
     return Response(thumb, mimetype="image/jpeg")
+
+# 이름으로 그 사람이 나온 사진의 얼굴 부분을 정사각형 JPEG으로 잘라 반환한다 (그래프 인물 노드 표시용)
+@app.route("/person-face", methods=["GET"])
+def person_face():
+    try:
+        face = get_person_face_crop(request.args.get("name"))
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"error": f"얼굴 이미지 생성 실패: {e}"}), 500
+    if face is None:
+        return jsonify({"error": "이 이름으로 저장된 얼굴이 없습니다."}), 404
+    return Response(face, mimetype="image/jpeg", headers={"Cache-Control": "max-age=300"})
 
 
 if __name__ == '__main__':

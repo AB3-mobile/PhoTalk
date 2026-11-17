@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:http/http.dart' as http;
 
@@ -24,5 +25,14 @@ class PhotoRepositoryApi implements PhotoRepository {
       throw Exception('사진 업로드 실패 ($fileName): ${json['error'] ?? res.statusCode}');
     }
     return json['face_count'] as int;
+  }
+
+  @override
+  Future<Uint8List?> getPersonFace(String name) async {
+    final uri = Uri.parse('$apiBaseUrl/person-face').replace(queryParameters: {'name': name});
+    final res = await http.get(uri);
+    if (res.statusCode == 404) return null;
+    if (res.statusCode != 200) throw Exception('/person-face 요청 실패 (${res.statusCode})');
+    return res.bodyBytes;
   }
 }

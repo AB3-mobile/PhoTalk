@@ -2,6 +2,7 @@
 # 얼굴 벡터끼리 코사인 유사도로 비교해 이미 아는 사람과 자동 매칭하는 함수도 여기 있다.
 
 import hashlib
+import io
 import uuid
 
 import numpy as np
@@ -196,3 +197,55 @@ def get_photo_thumbnail(photo_id: str):
     finally:
         cursor.close()
         conn.close()
+
+
+# 얼굴 크롭 크기 (정사각형 한 변, px)와 얼굴 둘레 여백 비율
+_FACE_CROP_SIZE = 256
+_FACE_CROP_MARGIN = 0.35
+
+
+# 이름이 같은 사람의 얼굴 중 가장 믿을 만한 것(확정 > 자동 매칭 유사도 높은 순 > 큰 얼굴)을 정사각형 JPEG으로 잘라 반환한다 (없으면 None)
+def get_person_face_crop(name: str):
+    name = (name or "").strip()
+    if not name:
+        return None
+    user_id = get_or_create_user_id("")
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute(
+            """
+            SELECT d.original, f.bbox_x, f.bbox_y, f.bbox_w, f.bbox_h
+            FROM known_person k
+            JOIN photo_face f ON f.person_id = k.person_id
+            JOIN photo_data d ON d.photo_id = f.photo_id
+            WHERE k.user_id = %s AND k.display_name = %s
+              AND f.match_status IN ('confirmed', 'auto')
+              AND f.bbox_w IS NOT NULL
+            ORDER BY f.match_status = 'confirmed' DESC, f.similarity DESC, f.bbox_w * f.bbox_h DESC
+            LIMIT 1
+            """,
+            (user_id, name),
+        )
+        row = cursor.fetchone()
+    finally:
+        cursor.close()
+        conn.close()
+    if not row:
+        return None
+
+    original, x, y, w, h = row
+    # bbox는 회전 보정한 이미지 기준 좌표이므로 같은 방식으로 연다
+    rgb, _, _ = open_image(bytes(original))
+    cx, cy = x + w / 2, y + h / 2
+    half = max(w, h) * (1 + _FACE_CROP_MARGIN) / 2
+    # 사진 밖으로 나가지 않게 정사각형을 안쪽으로 밀어 넣는다
+    half = min(half, rgb.width / 2, rgb.height / 2)
+    left = min(max(cx - half, 0), rgb.width - 2 * half)
+    top = min(max(cy - half, 0), rgb.height - 2 * half)
+    crop = rgb.crop((round(left), round(top), round(left + 2 * half), round(top + 2 * half)))
+    crop = crop.resize((_FACE_CROP_SIZE, _FACE_CROP_SIZE))
+
+    buf = io.BytesIO()
+    crop.save(buf, format="JPEG", quality=88)
+    return buf.getvalue()
