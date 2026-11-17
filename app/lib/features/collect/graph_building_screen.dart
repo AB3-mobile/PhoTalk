@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 import '../../core/app_colors.dart';
 import '../../core/app_text.dart';
 import '../../domain/repositories/chatroom_repository.dart';
+import '../../domain/repositories/photo_repository.dart';
 import 'collect_controller.dart';
 import 'collect_data.dart';
 import 'graph_done_screen.dart';
@@ -48,10 +49,11 @@ class _GraphBuildingScreenState extends State<GraphBuildingScreen> {
     super.dispose();
   }
 
-  // 아직 서버에 안 올린 대화방을 올려 그래프 구축을 시작시킨 뒤, 2초마다 진행률을 확인한다
+  // 아직 서버에 안 올린 대화방과 사진을 올려 그래프 구축을 시작시킨 뒤, 2초마다 진행률을 확인한다
   Future<void> _start() async {
     final c = widget.controller;
     final repo = context.read<ChatroomRepository>();
+    final photoRepo = context.read<PhotoRepository>();
     setState(() => _progress = 1);
     try {
       while (c.uploadedCount < c.pendingChats.length && mounted) {
@@ -71,6 +73,17 @@ class _GraphBuildingScreenState extends State<GraphBuildingScreen> {
           }
           await Future.delayed(const Duration(seconds: 1));
         }
+      }
+      // 사진을 한 장씩 올린다 (서버가 저장하면서 얼굴 벡터를 뽑고 입력한 이름과 연결한다)
+      final photos = c.selectedPhotoFiles;
+      while (c.uploadedPhotoCount < photos.length && mounted) {
+        final i = c.uploadedPhotoCount;
+        await photoRepo.uploadPhoto(
+          bytes: photos[i].bytes,
+          fileName: photos[i].name,
+          name: c.photoNames[c.selectedPhotos[i]],
+        );
+        c.markPhotoUploaded();
       }
     } catch (e) {
       if (mounted) setState(() => _error = '$e');

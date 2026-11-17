@@ -5,8 +5,10 @@ import 'collect_data.dart';
 
 // 데이터 수집 화면들이 함께 쓰는 상태 (추가한 대화방, 선택한 사진, 입력한 이름, 그래프 작업)
 class CollectController extends ChangeNotifier {
-  // 지금 갤러리에 있다고 가정하는 더미 사진 수 (실제 갤러리 연결 전까지)
-  static const int totalPhotos = 24;
+  // 사진 선택 화면에서 가져온 실제 사진들 (사진 번호 = 이 목록의 인덱스)
+  final List<PickedPhoto> photos = [];
+  // 지금까지 서버에 올린 사진 수 (selectedPhotos 앞에서부터 순서대로)
+  int uploadedPhotoCount = 0;
 
   // 추가는 했지만 "그래프 만들기"를 누르기 전이라 서버에 올리지 않은 대화방들
   final List<PickedChat> pendingChats = [];
@@ -47,14 +49,32 @@ class CollectController extends ChangeNotifier {
     notifyListeners();
   }
 
-  // 사진 선택 결과로 바꾸고, 선택에서 빠진 사진의 이름은 지운다
+  // 고른 사진들을 목록 뒤에 붙이고 새로 붙은 사진 번호들을 돌려준다
+  List<int> addPhotos(List<PickedPhoto> picked) {
+    final start = photos.length;
+    photos.addAll(picked);
+    notifyListeners();
+    return List.generate(picked.length, (i) => start + i);
+  }
+
+  // 사진 선택 결과로 바꾸고, 선택에서 빠진 사진의 이름은 지운다 (선택이 바뀌면 사진 업로드는 처음부터 다시)
   void setSelection(List<int> ids) {
     selectedPhotos
       ..clear()
       ..addAll(ids);
     photoNames.removeWhere((id, _) => !ids.contains(id));
+    uploadedPhotoCount = 0;
     notifyListeners();
   }
+
+  // 사진 한 장을 서버에 올렸다고 기록한다
+  void markPhotoUploaded() {
+    uploadedPhotoCount++;
+    notifyListeners();
+  }
+
+  // 선택한 사진들 (선택 순서 그대로)
+  List<PickedPhoto> get selectedPhotoFiles => selectedPhotos.map((id) => photos[id]).toList();
 
   // 사진 한 장의 인물 이름을 저장한다 (비어 있으면 지운다)
   void setName(int photo, String name) {

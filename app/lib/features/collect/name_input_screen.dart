@@ -6,7 +6,7 @@ import 'collect_controller.dart';
 import 'collect_data.dart';
 import 'widgets/next_button.dart';
 import 'widgets/person_avatar.dart';
-import 'widgets/photo_placeholder.dart';
+import 'widgets/picked_photo_image.dart';
 import 'widgets/sub_screen_scaffold.dart';
 
 // 인물 이름 입력 화면: 선택한 사진을 한 장씩 보며 나온 사람 이름을 적는다 (자동완성 지원)
@@ -105,7 +105,7 @@ class _NameInputScreenState extends State<NameInputScreen> {
             const SizedBox(height: 10),
             AspectRatio(
               aspectRatio: 362 / 258,
-              child: PhotoPlaceholder(variant: _current, radius: 24),
+              child: PickedPhotoImage(photo: widget.controller.photos[_current], radius: 24),
             ),
             const SizedBox(height: 14),
             _buildStrip(),
@@ -191,7 +191,7 @@ class _NameInputScreenState extends State<NameInputScreen> {
               child: Stack(
                 fit: StackFit.expand,
                 children: [
-                  PhotoPlaceholder(variant: id, radius: 11, dim: named),
+                  PickedPhotoImage(photo: widget.controller.photos[id], radius: 11, dim: named),
                   if (named)
                     const Center(
                       child: CircleAvatar(

@@ -105,6 +105,8 @@ from util.sse_broadcaster import (
     broadcast
 )
 from config.db import get_db_connection
+from util.face_embedder import UnsupportedImageError
+from util.database.photo_db_writer import save_photo, match_photo, get_photo_thumbnail
 from util.graphrag import (
     _run_graphrag,
     _is_index_ready
@@ -1308,6 +1310,50 @@ def accounts_route():
         return jsonify({"error": "지원하지 않는 domain입니다."}), 400
 
     return jsonify({"accounts": list_accounts(BASE_DIR, domain)})
+
+
+# 요청의 multipart "file"을 바이트로 읽는다 (없으면 None)
+def _read_upload_file():
+    f = request.files.get("file")
+    return f.read() if f else None
+
+# 사진 한 장(multipart file)과 이름(선택)을 받아 DB에 저장하고, 얼굴 벡터를 뽑아 이름과 연결한다
+@app.route("/photo-upload", methods=["POST"])
+def photo_upload():
+    data = _read_upload_file()
+    if not data:
+        return jsonify({"ok": False, "error": "file이 없습니다."}), 400
+    try:
+        result = save_photo(data, request.form.get("name"))
+    except UnsupportedImageError as e:
+        return jsonify({"ok": False, "error": str(e)}), 400
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"ok": False, "error": f"사진 저장 실패: {e}"}), 500
+    return jsonify({"ok": True, **result})
+
+# 사진 한 장(multipart file)의 얼굴들을 저장하지 않고 아는 사람과 매칭해 본다
+@app.route("/photo-match", methods=["POST"])
+def photo_match():
+    data = _read_upload_file()
+    if not data:
+        return jsonify({"ok": False, "error": "file이 없습니다."}), 400
+    try:
+        result = match_photo(data)
+    except UnsupportedImageError as e:
+        return jsonify({"ok": False, "error": str(e)}), 400
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"ok": False, "error": f"매칭 실패: {e}"}), 500
+    return jsonify({"ok": True, **result})
+
+# 저장한 사진의 썸네일(JPEG)을 반환한다
+@app.route("/photo-thumbnail/<photo_id>", methods=["GET"])
+def photo_thumbnail(photo_id):
+    thumb = get_photo_thumbnail(photo_id)
+    if thumb is None:
+        return jsonify({"error": "사진이 없습니다."}), 404
+    return Response(thumb, mimetype="image/jpeg")
 
 
 if __name__ == '__main__':

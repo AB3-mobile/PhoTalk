@@ -3,7 +3,8 @@ import 'package:flutter/material.dart';
 import '../../../core/app_colors.dart';
 import '../../../core/app_text.dart';
 import 'dashed_box.dart';
-import 'photo_placeholder.dart';
+import '../collect_data.dart';
+import 'picked_photo_image.dart';
 import 'section_card.dart';
 
 // PHOTO 카드: 사진이 없으면 선택 영역, 있으면 썸네일 요약과 '+ 사진 추가'를 보여준다
@@ -13,15 +14,15 @@ class PhotoSection extends StatelessWidget {
     required this.photoCount,
     required this.namedCount,
     required this.onPick,
-    required this.photoIds,
+    required this.photos,
     this.enabled = true,
   });
 
   final int photoCount;
   final int namedCount;
   final VoidCallback onPick;
-  // 앞쪽 썸네일로 보여줄 선택된 사진 번호들
-  final List<int> photoIds;
+  // 앞쪽 썸네일로 보여줄 선택된 사진들 (선택 순서)
+  final List<PickedPhoto> photos;
   // 대화방이 없으면 false (사진 선택 박스를 흐리게 막는다)
   final bool enabled;
 
@@ -67,17 +68,17 @@ class PhotoSection extends StatelessWidget {
 
   // 사진이 있을 때 보이는 썸네일 줄, 요약 줄, '+ 사진 추가' 버튼
   Widget _buildCollected() {
-    final shown = photoIds.take(4).toList();
+    final shown = photos.take(4).toList();
     final rest = photoCount - shown.length;
     return Column(
       children: [
         Row(
           children: [
-            for (final id in shown) ...[
+            for (final photo in shown) ...[
               Expanded(
                 child: AspectRatio(
                   aspectRatio: 1,
-                  child: PhotoPlaceholder(variant: id, radius: 10),
+                  child: PickedPhotoImage(photo: photo, radius: 10),
                 ),
               ),
               const SizedBox(width: 8),
