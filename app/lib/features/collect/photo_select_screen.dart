@@ -1,3 +1,4 @@
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/app_colors.dart';
@@ -6,10 +7,10 @@ import 'collect_controller.dart';
 import 'collect_data.dart';
 import 'name_input_screen.dart';
 import 'widgets/next_button.dart';
-import 'widgets/photo_placeholder.dart';
+import 'widgets/picked_photo_image.dart';
 import 'widgets/sub_screen_scaffold.dart';
 
-// 사진 선택 화면: 사진을 눌러 고르고(선택 순서 표시) 다음에 이름 입력으로 넘어간다
+// 사진 선택 화면: 기기에서 사진을 가져와 눌러 고르고(선택 순서 표시) 다음에 이름 입력으로 넘어간다
 class PhotoSelectScreen extends StatefulWidget {
   const PhotoSelectScreen({super.key, required this.controller});
 
@@ -30,6 +31,22 @@ class _PhotoSelectScreenState extends State<PhotoSelectScreen> {
     });
   }
 
+  // 기기의 사진 선택창을 열어 고른 사진들을 목록에 붙이고 바로 선택해 둔다
+  Future<void> _pick() async {
+    final files = await FilePicker.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: kPhotoExtensions,
+    );
+    if (files.isEmpty) return;
+    final picked = <PickedPhoto>[];
+    for (final f in files) {
+      picked.add(PickedPhoto(name: f.name, bytes: await f.readAsBytes()));
+    }
+    if (!mounted) return;
+    final ids = widget.controller.addPhotos(picked);
+    setState(() => _selected.addAll(ids));
+  }
+
   // 선택을 저장하고 이름 입력 화면으로 간다 (거기서 끝나면 이 화면도 닫는다)
   Future<void> _next() async {
     widget.controller.setSelection(_selected);
@@ -43,6 +60,7 @@ class _PhotoSelectScreenState extends State<PhotoSelectScreen> {
   @override
   Widget build(BuildContext context) {
     final period = widget.controller.period;
+    final photos = widget.controller.photos;
     return SubScreenScaffold(
       title: '사진 선택',
       body: Column(
@@ -74,10 +92,7 @@ class _PhotoSelectScreenState extends State<PhotoSelectScreen> {
               child: Text('대화 기간에 맞춰 날짜를 추천했어요', style: appText(11, weight: FontWeight.w700, color: AppColors.accent)),
             ),
           ],
-          const Padding(
-            padding: EdgeInsets.fromLTRB(20, 12, 20, 6),
-            child: Align(alignment: Alignment.centerLeft, child: _DateLabel()),
-          ),
+          const SizedBox(height: 12),
           Expanded(
             child: GridView.builder(
               padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
@@ -86,12 +101,17 @@ class _PhotoSelectScreenState extends State<PhotoSelectScreen> {
                 mainAxisSpacing: 8,
                 crossAxisSpacing: 8,
               ),
-              itemCount: CollectController.totalPhotos,
-              itemBuilder: (_, id) => _PhotoTile(
-                id: id,
-                order: _selected.indexOf(id) + 1, // 0이면 선택 안 됨
-                onTap: () => _toggle(id),
-              ),
+              // 첫 칸은 '사진 추가' 버튼, 그 뒤로 가져온 사진들
+              itemCount: photos.length + 1,
+              itemBuilder: (_, i) {
+                if (i == 0) return _AddTile(onTap: _pick);
+                final id = i - 1;
+                return _PhotoTile(
+                  photo: photos[id],
+                  order: _selected.indexOf(id) + 1, // 0이면 선택 안 됨
+                  onTap: () => _toggle(id),
+                );
+              },
             ),
           ),
           Container(
@@ -146,21 +166,40 @@ class _FilterPill extends StatelessWidget {
   }
 }
 
-// 사진 목록 위의 날짜 글자 (지금은 더미 날짜)
-class _DateLabel extends StatelessWidget {
-  const _DateLabel();
+// 그리드 첫 칸: 누르면 기기의 사진 선택창을 연다
+class _AddTile extends StatelessWidget {
+  const _AddTile({required this.onTap});
+
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Text('9월 21일 · 토', style: appText(11, weight: FontWeight.w700, color: AppColors.textSecondary));
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        decoration: BoxDecoration(
+          color: AppColors.pickAreaBg,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: AppColors.dashed),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.add_photo_alternate_outlined, size: 24, color: AppColors.accent),
+            const SizedBox(height: 4),
+            Text('사진 추가', style: appText(10.5, weight: FontWeight.w700, color: AppColors.accent)),
+          ],
+        ),
+      ),
+    );
   }
 }
 
 // 사진 한 칸 (선택하면 파란 테두리와 선택 순서 번호가 붙는다)
 class _PhotoTile extends StatelessWidget {
-  const _PhotoTile({required this.id, required this.order, required this.onTap});
+  const _PhotoTile({required this.photo, required this.order, required this.onTap});
 
-  final int id;
+  final PickedPhoto photo;
   // 선택 순서 (1부터), 선택 안 됐으면 0
   final int order;
   final VoidCallback onTap;
@@ -173,7 +212,7 @@ class _PhotoTile extends StatelessWidget {
       child: Stack(
         fit: StackFit.expand,
         children: [
-          PhotoPlaceholder(variant: id, radius: 12),
+          PickedPhotoImage(photo: photo, radius: 12),
           if (selected)
             DecoratedBox(
               decoration: BoxDecoration(

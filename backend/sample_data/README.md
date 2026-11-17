@@ -4,6 +4,8 @@
 
 - `demo_chat.txt`: 3명(민지/준호/서연)이 스터디·프로젝트 일정을 이야기하는 14일치 대화.
 - `upload_demo.py`: 위 대화를 실행 중인 서버에 올리는 스크립트.
+- `people/`: 위 3명의 테스트용 인물 사진 (사진 업로드·얼굴 매칭 시험용). 사용법은 [people/README.md](people/README.md).
+- `upload_people.py`: `people/` 사진을 이름과 함께 서버에 올리고 얼굴이 저장됐는지 확인하는 스크립트.
 
 ## 사용법
 

@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import '../../domain/models/chat_preview.dart';
 
 // 숫자를 1,284처럼 천 단위 쉼표가 들어간 글자로 바꾼다
@@ -41,3 +43,14 @@ class PickedChat {
   final ChatPreview preview;
   final String displayName;
 }
+
+// 사진 선택 화면에서 고른 실제 사진 한 장 (파일 이름과 내용)
+class PickedPhoto {
+  const PickedPhoto({required this.name, required this.bytes});
+
+  final String name;
+  final Uint8List bytes;
+}
+
+// 사진 고르기에서 허용하는 확장자 (서버 /photo-upload 가 받는 형식과 같다)
+const List<String> kPhotoExtensions = ['jpg', 'jpeg', 'png', 'webp', 'bmp', 'heic', 'heif'];

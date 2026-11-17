@@ -58,3 +58,6 @@ android-app/**/*.apk
 
 # PhoTalk 가상환경
 PhoTalk_venv/
+
+# 얼굴 인식 모델 (처음 쓸 때 자동 다운로드, 또는 src에서 python -m util.face_embedder --download)
+models/face/

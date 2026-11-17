@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -6,6 +7,7 @@ import 'package:provider/provider.dart';
 import '../../core/app_colors.dart';
 import '../../core/app_text.dart';
 import '../../domain/models/relationship.dart';
+import '../../domain/repositories/photo_repository.dart';
 import '../../domain/repositories/relationship_repository.dart';
 import '../graph/knowledge_graph_screen.dart';
 import 'collect_controller.dart';
@@ -27,11 +29,25 @@ class GraphDoneScreen extends StatefulWidget {
 class _GraphDoneScreenState extends State<GraphDoneScreen> {
   // 서버에서 받은 인물 사이 관계 (아직 못 받았거나 실패하면 null)
   List<Relationship>? _relations;
+  // 인물 이름별 얼굴 사진 (업로드한 사진에서 얼굴만 잘라낸 JPEG, 없으면 목록에 없음)
+  final Map<String, Uint8List> _faces = {};
 
   @override
   void initState() {
     super.initState();
     _loadRelations();
+    _loadFaces();
+  }
+
+  // 대화 참여자마다 서버에 저장된 얼굴 사진을 받아 둔다 (없거나 실패하면 기본 아바타)
+  Future<void> _loadFaces() async {
+    final repo = context.read<PhotoRepository>();
+    await Future.wait(widget.controller.participantNames.map((name) async {
+      try {
+        final bytes = await repo.getPersonFace(name);
+        if (bytes != null && mounted) setState(() => _faces[name] = bytes);
+      } catch (_) {}
+    }));
   }
 
   // 첫 대화방의 관계 목록을 읽어온다 (실패하면 관계 수는 '-'로 보인다)
@@ -87,7 +103,7 @@ class _GraphDoneScreenState extends State<GraphDoneScreen> {
                     Container(
                       height: 262,
                       decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(24)),
-                      child: _GraphPreview(center: room, people: people),
+                      child: _GraphPreview(center: room, people: people, faces: _faces),
                     ),
                     const SizedBox(height: 16),
                     Row(
@@ -166,7 +182,12 @@ class _GraphDoneScreenState extends State<GraphDoneScreen> {
                           decoration: i == 0
                               ? BoxDecoration(shape: BoxShape.circle, border: Border.all(color: AppColors.accent, width: 2))
                               : null,
-                          child: PersonAvatar(index: i, size: 36),
+                          // 얼굴 사진이 저장된 사람은 얼굴, 없으면 기본 아바타
+                          child: _faces[top[i].key] == null
+                              ? PersonAvatar(index: i, size: 36)
+                              : ClipOval(
+                                  child: Image.memory(_faces[top[i].key]!, width: 36, height: 36, fit: BoxFit.cover, gaplessPlayback: true),
+                                ),
                         ),
                         const SizedBox(width: 8),
                         Expanded(
@@ -218,11 +239,32 @@ class _Stat extends StatelessWidget {
 }
 
 // 가운데 대화방 노드와 둘레의 인물 노드를 선으로 이은 작은 그래프 미리보기
-class _GraphPreview extends StatelessWidget {
-  const _GraphPreview({required this.center, required this.people});
+// 인물 노드에 마우스를 올리거나 탭하면 노드가 커지며 그 사람의 얼굴 사진을 보여 준다
+class _GraphPreview extends StatefulWidget {
+  const _GraphPreview({required this.center, required this.people, required this.faces});
 
   final String center;
   final List<String> people;
+  final Map<String, Uint8List> faces;
+
+  @override
+  State<_GraphPreview> createState() => _GraphPreviewState();
+}
+
+class _GraphPreviewState extends State<_GraphPreview> {
+  // 노드 기본 크기와 얼굴을 보여 줄 때 커지는 크기
+  static const double _small = 34;
+  static const double _big = 68;
+  static const Duration _anim = Duration(milliseconds: 180);
+
+  // 마우스를 올린 노드와 탭으로 고정한 노드 (없으면 -1)
+  int _hovered = -1;
+  int _tapped = -1;
+
+  List<String> get people => widget.people;
+
+  // 얼굴을 보여 줄 노드 (마우스를 올린 노드가 우선)
+  int get _active => _hovered >= 0 ? _hovered : _tapped;
 
   // i번째 인물 노드의 중심 위치 (위쪽에서 시작해 타원형으로 고르게 배치)
   Offset _pos(int i, Size size) {
@@ -233,29 +275,67 @@ class _GraphPreview extends StatelessWidget {
     );
   }
 
+  // i번째 인물 노드 (아바타 동그라미 중심이 위치점보다 3px 위에 오도록 둔다)
+  Widget _node(int i, Size size) {
+    final p = _pos(i, size);
+    final face = widget.faces[people[i]];
+    final open = face != null && i == _active;
+    final d = open ? _big : _small;
+    return AnimatedPositioned(
+      key: ValueKey(people[i]),
+      duration: _anim,
+      curve: Curves.easeOut,
+      left: p.dx - 40,
+      top: p.dy - 3 - d / 2,
+      width: 80,
+      child: Column(
+        children: [
+          MouseRegion(
+            cursor: face != null ? SystemMouseCursors.click : MouseCursor.defer,
+            onEnter: (_) => setState(() => _hovered = i),
+            onExit: (_) => setState(() => _hovered = -1),
+            child: GestureDetector(
+              onTap: () => setState(() => _tapped = _tapped == i ? -1 : i),
+              child: AnimatedContainer(
+                duration: _anim,
+                curve: Curves.easeOut,
+                width: d,
+                height: d,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: open ? Border.all(color: AppColors.nodePerson, width: 3) : null,
+                  boxShadow: open ? const [BoxShadow(color: Color(0x401E2A4A), blurRadius: 10, offset: Offset(0, 2))] : null,
+                ),
+                child: ClipOval(
+                  child: AnimatedSwitcher(
+                    duration: _anim,
+                    child: open
+                        ? Image.memory(face, key: const ValueKey('face'), fit: BoxFit.cover, width: d, height: d, gaplessPlayback: true)
+                        : FittedBox(key: const ValueKey('avatar'), child: PersonAvatar(index: i, size: _small)),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(people[i], maxLines: 1, overflow: TextOverflow.ellipsis, style: appText(10, weight: FontWeight.w700)),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(builder: (context, box) {
       final size = Size(box.maxWidth, box.maxHeight);
       final c = Offset(size.width / 2, size.height / 2);
+      final active = _active;
       return Stack(
+        clipBehavior: Clip.none,
         children: [
           Positioned.fill(
             child: CustomPaint(painter: _LinePainter([for (var i = 0; i < people.length; i++) _pos(i, size)], c)),
           ),
-          for (var i = 0; i < people.length; i++)
-            Positioned(
-              left: _pos(i, size).dx - 28,
-              top: _pos(i, size).dy - 20,
-              width: 56,
-              child: Column(
-                children: [
-                  PersonAvatar(index: i, size: 34),
-                  const SizedBox(height: 4),
-                  Text(people[i], maxLines: 1, overflow: TextOverflow.ellipsis, style: appText(10, weight: FontWeight.w700)),
-                ],
-              ),
-            ),
           Positioned(
             left: c.dx - 28,
             top: c.dy - 28,
@@ -271,12 +351,16 @@ class _GraphPreview extends StatelessWidget {
                   const SizedBox(height: 2),
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 4),
-                    child: Text(center, maxLines: 1, overflow: TextOverflow.ellipsis, style: appText(8.5, weight: FontWeight.w700, color: Colors.white)),
+                    child: Text(widget.center, maxLines: 1, overflow: TextOverflow.ellipsis, style: appText(8.5, weight: FontWeight.w700, color: Colors.white)),
                   ),
                 ],
               ),
             ),
           ),
+          // 커진 노드가 다른 노드와 가운데 노드를 덮도록 맨 마지막에 그린다
+          for (var i = 0; i < people.length; i++)
+            if (i != active) _node(i, size),
+          if (active >= 0 && active < people.length) _node(active, size),
         ],
       );
     });

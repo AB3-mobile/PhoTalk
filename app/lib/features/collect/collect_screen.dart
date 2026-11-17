@@ -128,7 +128,7 @@ class _CollectScreenState extends State<CollectScreen> {
                           PhotoSection(
                             photoCount: _c.photoCount,
                             namedCount: _c.namedCount,
-                            photoIds: _c.selectedPhotos,
+                            photos: _c.selectedPhotoFiles,
                             onPick: _pickPhotos,
                             // 대화방이 없으면 이름 자동완성에 쓸 참여자가 없어 사진 선택을 막는다
                             enabled: _c.pendingChats.isNotEmpty,
