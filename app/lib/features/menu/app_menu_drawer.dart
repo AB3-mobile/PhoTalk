@@ -4,6 +4,7 @@ import '../../core/app_colors.dart';
 import '../../core/app_text.dart';
 import '../collect/collect_screen.dart';
 import '../graph/knowledge_graph_screen.dart';
+import '../history/history_screen.dart';
 import '../photo/photo_add_screen.dart';
 
 // 서비스 이름 아래에 표시할 팀 이름 (실제 팀 이름으로 바꿔 쓴다)
@@ -53,6 +54,7 @@ class AppMenuDrawer extends StatelessWidget {
     Widget? page;
     if (item == AppMenuItem.collect) page = const CollectScreen();
     if (item == AppMenuItem.graph) page = const KnowledgeGraphScreen();
+    if (item == AppMenuItem.history) page = const HistoryScreen();
     if (page == null) {
       messenger.showSnackBar(SnackBar(content: Text('${_info(item).$1} 화면은 다음 단계에서 연결해요')));
       return;
