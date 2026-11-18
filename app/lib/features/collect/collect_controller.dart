@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../domain/models/chat_preview.dart';
+import '../../domain/models/person.dart';
 import 'collect_data.dart';
 
 // 데이터 수집 화면들이 함께 쓰는 상태 (추가한 대화방, 선택한 사진, 입력한 이름, 그래프 작업)
@@ -22,6 +23,16 @@ class CollectController extends ChangeNotifier {
   final List<int> selectedPhotos = [];
   // 사진 번호별로 입력한 인물 이름
   final Map<int, String> photoNames = {};
+  // 이미 인덱싱된 대화방의 인물 (사진만 추가할 때 이름 후보로 쓴다)
+  final List<Person> knownPeople = [];
+
+  // 이름 후보로 쓸 기존 대화방 인물들을 정한다
+  void setKnownPeople(List<Person> people) {
+    knownPeople
+      ..clear()
+      ..addAll(people);
+    notifyListeners();
+  }
 
   // 대화방을 목록에 추가한다 (서버 업로드는 그래프 만들기 때 한다)
   void addPending(PickedChat chat) {
@@ -99,6 +110,7 @@ class CollectController extends ChangeNotifier {
     for (final p in previews) {
       names.addAll(p.participants);
     }
+    names.addAll(knownPeople.map((p) => p.name));
     return names.toList();
   }
 
@@ -107,6 +119,9 @@ class CollectController extends ChangeNotifier {
     final map = <String, int>{};
     for (final p in previews) {
       p.participantCounts.forEach((k, v) => map[k] = (map[k] ?? 0) + v);
+    }
+    for (final p in knownPeople) {
+      map[p.name] = (map[p.name] ?? 0) + p.messageCount;
     }
     return map;
   }

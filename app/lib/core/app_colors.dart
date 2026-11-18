@@ -31,6 +31,8 @@ class AppColors {
   static const Color success = Color(0xFF22A36A);
   // 완료 배지의 연한 초록 배경 (임시값)
   static const Color successBg = Color(0xFFDFF4E8);
+  // 업로드 실패 같은 오류 글자와 아이콘 색 (임시값)
+  static const Color error = Color(0xFFD64545);
   // '아직 없음' 배지의 연한 회색 배경 (임시값)
   static const Color badgeGrayBg = Color(0xFFE9ECF4);
   // 카드 왼쪽 아이콘 칸의 연한 파랑 배경 (임시값)

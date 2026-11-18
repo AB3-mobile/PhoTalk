@@ -4,12 +4,13 @@ import '../../core/app_colors.dart';
 import '../../core/app_text.dart';
 import '../collect/collect_screen.dart';
 import '../graph/knowledge_graph_screen.dart';
+import '../photo/photo_add_screen.dart';
 
 // 서비스 이름 아래에 표시할 팀 이름 (실제 팀 이름으로 바꿔 쓴다)
 const String kTeamName = '고모프';
 
 // 왼쪽 메뉴에 들어가는 화면 목록
-enum AppMenuItem { collect, build, graph, member, history, search }
+enum AppMenuItem { collect, build, graph, photo, member, history, search }
 
 // 메뉴 항목의 이름과 아이콘을 돌려준다
 (String, IconData) _info(AppMenuItem i) {
@@ -20,6 +21,8 @@ enum AppMenuItem { collect, build, graph, member, history, search }
       return ('그래프 구축', Icons.share_outlined);
     case AppMenuItem.graph:
       return ('지식 그래프 보기', Icons.show_chart_rounded);
+    case AppMenuItem.photo:
+      return ('사진 추가', Icons.add_photo_alternate_outlined);
     case AppMenuItem.member:
       return ('멤버', Icons.person_outline_rounded);
     case AppMenuItem.history:
@@ -41,6 +44,11 @@ class AppMenuDrawer extends StatelessWidget {
     final nav = Navigator.of(context);
     final messenger = ScaffoldMessenger.of(context);
     nav.pop();
+    // 사진 추가는 지금 화면 위에 열고, 끝나면 원래 화면으로 돌아온다
+    if (item == AppMenuItem.photo) {
+      openPhotoAdd(nav.context);
+      return;
+    }
     if (item == current) return;
     Widget? page;
     if (item == AppMenuItem.collect) page = const CollectScreen();
