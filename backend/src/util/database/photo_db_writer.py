@@ -236,17 +236,19 @@ _FACE_CROP_SIZE = 256
 _FACE_CROP_MARGIN = 0.35
 
 
-# 이름이 같은 사람의 얼굴 중 가장 믿을 만한 것(확정 > 자동 매칭 유사도 높은 순 > 큰 얼굴)을 정사각형 JPEG으로 잘라 반환한다 (없으면 None)
-def get_person_face_crop(name: str):
+# 이름이 같은 사람의 얼굴 중 가장 믿을 만한 것(확정 > 자동 매칭 유사도 높은 순 > 큰 얼굴, random_pick이면 아무거나)을 정사각형 JPEG으로 잘라 반환한다 (없으면 None)
+def get_person_face_crop(name: str, random_pick: bool = False):
     name = (name or "").strip()
     if not name:
         return None
     user_id = get_or_create_user_id("")
+    # 랜덤이면 정렬 대신 무작위 순서로 한 장을 고른다
+    order_by = "RAND()" if random_pick else "f.match_status = 'confirmed' DESC, f.similarity DESC, f.bbox_w * f.bbox_h DESC"
     conn = get_db_connection()
     cursor = conn.cursor()
     try:
         cursor.execute(
-            """
+            f"""
             SELECT d.original, f.bbox_x, f.bbox_y, f.bbox_w, f.bbox_h
             FROM known_person k
             JOIN photo_face f ON f.person_id = k.person_id
@@ -254,7 +256,7 @@ def get_person_face_crop(name: str):
             WHERE k.user_id = %s AND k.display_name = %s
               AND f.match_status IN ('confirmed', 'auto')
               AND f.bbox_w IS NOT NULL
-            ORDER BY f.match_status = 'confirmed' DESC, f.similarity DESC, f.bbox_w * f.bbox_h DESC
+            ORDER BY {order_by}
             LIMIT 1
             """,
             (user_id, name),

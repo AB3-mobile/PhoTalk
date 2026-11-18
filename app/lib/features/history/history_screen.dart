@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -9,6 +11,7 @@ import '../../domain/models/keyword_count.dart';
 import '../../domain/models/keyword_mentioner.dart';
 import '../../domain/repositories/chatroom_repository.dart';
 import '../../domain/repositories/history_repository.dart';
+import '../../domain/repositories/photo_repository.dart';
 import '../collect/widgets/circle_icon_button.dart';
 import '../collect/widgets/person_avatar.dart';
 import '../menu/app_menu_drawer.dart';
@@ -44,6 +47,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
   bool _mentionFailed = false;
   // 대화방을 빠르게 바꿨을 때 늦게 온 응답을 버리기 위한 번호
   int _token = 0;
+  // 연락처 이름별 얼굴 사진 (서버에 저장된 얼굴이 있는 사람만 들어 있다)
+  final Map<String, Uint8List> _faces = {};
   // 열려 있는 연도·월 드롭다운 (없으면 null)과 알약 줄의 위치를 재기 위한 키
   _Drop? _drop;
   double _pillsTop = 0;
@@ -90,6 +95,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
       _selDay = null;
       _dailyCache.clear();
       _mentionCache.clear();
+      _faces.clear();
     });
     try {
       final results = await Future.wait([repo.getMonthlySummaries(roomId), repo.getMonthlyKeywords(roomId)]);
@@ -104,6 +110,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
         _loading = false;
         if (periods.isNotEmpty) _select(periods.last);
       });
+      _loadFaces(summaries.values.expand((s) => s.contacts.map((c) => c.name)).toSet());
     } catch (_) {
       if (!mounted || token != _token) return;
       setState(() {
@@ -111,6 +118,17 @@ class _HistoryScreenState extends State<HistoryScreen> {
         _error = '히스토리를 불러오지 못했어요. 서버 연결을 확인해 주세요.';
       });
     }
+  }
+
+  // 연락처들의 얼굴 사진을 서버에서 받아 둔다 (사진이 없거나 실패하면 기본 아바타로 남는다)
+  Future<void> _loadFaces(Set<String> names) async {
+    final repo = context.read<PhotoRepository>();
+    await Future.wait(names.map((name) async {
+      try {
+        final bytes = await repo.getPersonFace(name, random: true);
+        if (bytes != null && mounted) setState(() => _faces[name] = bytes);
+      } catch (_) {}
+    }));
   }
 
   // "2026-08" 모양의 기간으로 연도와 월을 맞춘다
@@ -410,7 +428,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                     }),
                   ),
             const SizedBox(height: 14),
-            _SummaryCard(key: ValueKey(_key), summary: summary),
+            _SummaryCard(key: ValueKey(_key), summary: summary, faces: _faces),
           ],
         ),
       ],
@@ -522,9 +540,11 @@ class _DropPanelState extends State<_DropPanel> {
 
 // 주요 사건 요약 글과 주요 연락처가 들어 있는 하얀 카드 (연락처를 누르면 소개 말풍선이 뜬다)
 class _SummaryCard extends StatefulWidget {
-  const _SummaryCard({super.key, required this.summary});
+  const _SummaryCard({super.key, required this.summary, required this.faces});
 
   final HistorySummary? summary;
+  // 이름별 얼굴 사진 (없는 사람은 기본 아바타)
+  final Map<String, Uint8List> faces;
 
   @override
   State<_SummaryCard> createState() => _SummaryCardState();
@@ -601,7 +621,7 @@ class _SummaryCardState extends State<_SummaryCard> {
                         clipBehavior: Clip.none,
                         alignment: Alignment.center,
                         children: [
-                          PersonAvatar(index: i, size: _avatar),
+                          _avatarOf(contacts[i].name, i),
                           // 고른 연락처는 파란 테두리를 두른다
                           if (_sel == i)
                             Positioned(
@@ -634,6 +654,13 @@ class _SummaryCardState extends State<_SummaryCard> {
         if (_sel != null && _sel! < contacts.length) _bubble(contacts[_sel!], perRun, width),
       ],
     );
+  }
+
+  // 얼굴 사진이 있으면 원형 사진, 없으면 기본 아바타
+  Widget _avatarOf(String name, int index) {
+    final bytes = widget.faces[name];
+    if (bytes == null) return PersonAvatar(index: index, size: _avatar);
+    return ClipOval(child: Image.memory(bytes, width: _avatar, height: _avatar, fit: BoxFit.cover, gaplessPlayback: true));
   }
 
   // 고른 연락처의 소개를 담은 말풍선 (위쪽 꼭지가 그 연락처를 가리킨다)

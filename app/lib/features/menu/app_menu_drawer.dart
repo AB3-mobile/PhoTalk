@@ -11,15 +11,13 @@ import '../photo/photo_add_screen.dart';
 const String kTeamName = '고모프';
 
 // 왼쪽 메뉴에 들어가는 화면 목록
-enum AppMenuItem { collect, build, graph, photo, member, history, search }
+enum AppMenuItem { collect, graph, photo, member, history, search }
 
 // 메뉴 항목의 이름과 아이콘을 돌려준다
 (String, IconData) _info(AppMenuItem i) {
   switch (i) {
     case AppMenuItem.collect:
       return ('데이터 수집', Icons.storage_outlined);
-    case AppMenuItem.build:
-      return ('그래프 구축', Icons.share_outlined);
     case AppMenuItem.graph:
       return ('지식 그래프 보기', Icons.show_chart_rounded);
     case AppMenuItem.photo:

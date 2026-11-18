@@ -303,6 +303,25 @@ class _ForceGraphViewState extends State<ForceGraphView> with SingleTickerProvid
     _rev.value++;
   }
 
+  // 마우스 휠·트랙패드 스크롤/핀치 신호를 받아 커서 위치 기준으로 확대·축소한다
+  void _onPointerSignal(PointerSignalEvent e) {
+    double factor;
+    if (e is PointerScrollEvent) {
+      factor = math.exp(-e.scrollDelta.dy * 0.002);
+    } else if (e is PointerScaleEvent) {
+      factor = e.scale;
+    } else {
+      return;
+    }
+    GestureBinding.instance.pointerSignalResolver.register(e, (_) {
+      final s = (_scale * factor).clamp(0.05, 4.0);
+      final world = (e.localPosition - _offset) / _scale;
+      _scale = s;
+      _offset = e.localPosition - world * s;
+      _rev.value++;
+    });
+  }
+
   void _onScaleEnd(ScaleEndDetails d) {
     if (_dragging >= 0) {
       // 놓으면 고정을 풀고 시뮬레이션이 천천히 식게 한다
@@ -396,13 +415,16 @@ class _ForceGraphViewState extends State<ForceGraphView> with SingleTickerProvid
                         cursor: _hovered >= 0 ? SystemMouseCursors.click : MouseCursor.defer,
                         onHover: _onHover,
                         onExit: _onExit,
-                        child: GestureDetector(
-                          behavior: HitTestBehavior.opaque,
-                          onTapUp: _onTap,
-                          onScaleStart: _onScaleStart,
-                          onScaleUpdate: _onScaleUpdate,
-                          onScaleEnd: _onScaleEnd,
-                          child: CustomPaint(painter: _ForcePainter(this)),
+                        child: Listener(
+                          onPointerSignal: _onPointerSignal,
+                          child: GestureDetector(
+                            behavior: HitTestBehavior.opaque,
+                            onTapUp: _onTap,
+                            onScaleStart: _onScaleStart,
+                            onScaleUpdate: _onScaleUpdate,
+                            onScaleEnd: _onScaleEnd,
+                            child: CustomPaint(painter: _ForcePainter(this)),
+                          ),
                         ),
                       ),
                     ),
