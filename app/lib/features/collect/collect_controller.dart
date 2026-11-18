@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../../domain/models/chat_preview.dart';
 import '../../domain/models/person.dart';
+import '../../domain/models/photo_match.dart';
+import '../../domain/repositories/photo_repository.dart';
 import 'collect_data.dart';
 
 // 데이터 수집 화면들이 함께 쓰는 상태 (추가한 대화방, 선택한 사진, 입력한 이름, 그래프 작업)
@@ -25,6 +27,47 @@ class CollectController extends ChangeNotifier {
   final Map<int, String> photoNames = {};
   // 이미 인덱싱된 대화방의 인물 (사진만 추가할 때 이름 후보로 쓴다)
   final List<Person> knownPeople = [];
+  // 사진 번호별 서버 얼굴 매칭 결과 (사진만 추가할 때 이름 자동 채움에 쓴다)
+  final Map<int, PhotoMatch> photoMatches = {};
+  // 지금 매칭 중인 사진 번호, 매칭 요청이 실패한 사진 번호
+  final Set<int> matchingPhotos = {};
+  final Set<int> matchFailedPhotos = {};
+  // 사용자가 이름을 직접 저장(또는 건너뛰기)한 사진 번호 (자동 채움이 덮어쓰지 않게)
+  final Set<int> _nameTouched = {};
+
+  // 이미 아는 사람이 있을 때(사진만 추가할 때)만 얼굴 자동 매칭을 한다
+  bool get autoMatchEnabled => knownPeople.isNotEmpty;
+
+  // 매칭 후보 이름 = 고른 대화방 참여자
+  List<String> get candidateNames => knownPeople.map((p) => p.name).toList();
+
+  // 선택한 사진 중 아직 매칭하지 않은 사진을 차례로 서버에 보내 얼굴을 매칭하고,
+  // 이름을 아직 적지 않은 사진에는 가장 큰 얼굴의 매칭 이름을 채워 둔다 (사용자가 확인·수정한다)
+  Future<void> autoMatch(PhotoRepository repo) async {
+    if (!autoMatchEnabled) return;
+    final candidates = candidateNames;
+    for (final id in List.of(selectedPhotos)) {
+      if (photoMatches.containsKey(id) || matchingPhotos.contains(id)) continue;
+      matchingPhotos.add(id);
+      matchFailedPhotos.remove(id);
+      notifyListeners();
+      try {
+        final photo = photos[id];
+        final match = await repo.matchPhoto(bytes: photo.bytes, fileName: photo.name, candidates: candidates);
+        photoMatches[id] = match;
+        final name = match.bestName;
+        // 사이에 선택이 바뀌었으면 이름은 채우지 않는다
+        if (name != null && selectedPhotos.contains(id) && !_nameTouched.contains(id) && !photoNames.containsKey(id)) {
+          photoNames[id] = name;
+        }
+      } catch (_) {
+        matchFailedPhotos.add(id);
+      } finally {
+        matchingPhotos.remove(id);
+        notifyListeners();
+      }
+    }
+  }
 
   // 이름 후보로 쓸 기존 대화방 인물들을 정한다
   void setKnownPeople(List<Person> people) {
@@ -74,6 +117,10 @@ class CollectController extends ChangeNotifier {
       ..clear()
       ..addAll(ids);
     photoNames.removeWhere((id, _) => !ids.contains(id));
+    // 매칭 결과는 사진 번호에 붙어 있으므로 남겨 둬도 되지만, 빠진 사진 것은 정리한다
+    photoMatches.removeWhere((id, _) => !ids.contains(id));
+    matchFailedPhotos.removeWhere((id) => !ids.contains(id));
+    _nameTouched.removeWhere((id) => !ids.contains(id));
     uploadedPhotoCount = 0;
     notifyListeners();
   }
@@ -89,6 +136,7 @@ class CollectController extends ChangeNotifier {
 
   // 사진 한 장의 인물 이름을 저장한다 (비어 있으면 지운다)
   void setName(int photo, String name) {
+    _nameTouched.add(photo);
     final n = name.trim();
     if (n.isEmpty) {
       photoNames.remove(photo);

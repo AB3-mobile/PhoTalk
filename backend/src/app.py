@@ -1317,6 +1317,23 @@ def _read_upload_file():
     f = request.files.get("file")
     return f.read() if f else None
 
+# 요청의 "candidates"(매칭 후보 이름)를 목록으로 읽는다. 필드가 없으면 None(제한 없음).
+# 같은 이름의 필드를 여러 번 보내도 되고, JSON 배열 문자열 하나로 보내도 된다.
+def _read_candidates():
+    if "candidates" not in request.form:
+        return None
+    names = []
+    for raw in request.form.getlist("candidates"):
+        raw = (raw or "").strip()
+        if raw.startswith("["):
+            try:
+                names.extend(str(n) for n in json.loads(raw))
+                continue
+            except ValueError:
+                pass
+        names.append(raw)
+    return names
+
 # 사진 한 장(multipart file)과 이름(선택)을 받아 DB에 저장하고, 얼굴 벡터를 뽑아 이름과 연결한다
 @app.route("/photo-upload", methods=["POST"])
 def photo_upload():
@@ -1324,7 +1341,7 @@ def photo_upload():
     if not data:
         return jsonify({"ok": False, "error": "file이 없습니다."}), 400
     try:
-        result = save_photo(data, request.form.get("name"))
+        result = save_photo(data, request.form.get("name"), _read_candidates())
     except UnsupportedImageError as e:
         return jsonify({"ok": False, "error": str(e)}), 400
     except Exception as e:
@@ -1332,14 +1349,14 @@ def photo_upload():
         return jsonify({"ok": False, "error": f"사진 저장 실패: {e}"}), 500
     return jsonify({"ok": True, **result})
 
-# 사진 한 장(multipart file)의 얼굴들을 저장하지 않고 아는 사람과 매칭해 본다
+# 사진 한 장(multipart file)의 얼굴들을 저장하지 않고 아는 사람과 매칭해 본다 (candidates가 있으면 그 이름들로만)
 @app.route("/photo-match", methods=["POST"])
 def photo_match():
     data = _read_upload_file()
     if not data:
         return jsonify({"ok": False, "error": "file이 없습니다."}), 400
     try:
-        result = match_photo(data)
+        result = match_photo(data, _read_candidates())
     except UnsupportedImageError as e:
         return jsonify({"ok": False, "error": str(e)}), 400
     except Exception as e:

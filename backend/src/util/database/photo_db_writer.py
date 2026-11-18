@@ -41,11 +41,27 @@ def get_or_create_person(cursor, user_id: str, name: str) -> str:
     return person_id
 
 
+# 후보 이름 목록을 정리한다 (공백 제거, 빈 값·중복 제외). None이면 제한 없음.
+def clean_candidates(names):
+    if names is None:
+        return None
+    out = []
+    for n in names:
+        n = (n or "").strip()[:_NAME_MAXLEN]
+        if n and n not in out:
+            out.append(n)
+    return out
+
+
 # 이 사용자가 이름을 아는 얼굴들(confirmed/auto)과 비교해 가장 닮은 사람을 반환한다
+# - candidate_names가 있으면 그 이름의 사람들하고만 비교한다 (빈 목록이면 매칭하지 않음)
+# - exclude_person_ids에 있는 사람은 건너뛴다 (한 사진에 같은 사람이 두 번 붙지 않게)
 # 반환: {person_id, name, similarity} 또는 None (기준 미달)
-def match_face(cursor, user_id: str, embedding: np.ndarray, threshold: float = MATCH_THRESHOLD, exclude_photo_id: str = None):
-    cursor.execute(
-        """
+def match_face(cursor, user_id: str, embedding: np.ndarray, threshold: float = MATCH_THRESHOLD,
+               exclude_photo_id: str = None, candidate_names=None, exclude_person_ids=()):
+    if candidate_names is not None and not candidate_names:
+        return None
+    sql = """
         SELECT f.embedding, f.person_id, k.display_name
         FROM photo_face f
         JOIN photo p ON p.photo_id = f.photo_id
@@ -54,10 +70,13 @@ def match_face(cursor, user_id: str, embedding: np.ndarray, threshold: float = M
           AND f.embed_model = %s
           AND f.match_status IN ('confirmed', 'auto')
           AND (%s IS NULL OR f.photo_id <> %s)
-        """,
-        (user_id, EMBED_MODEL, exclude_photo_id, exclude_photo_id),
-    )
-    rows = cursor.fetchall()
+    """
+    params = [user_id, EMBED_MODEL, exclude_photo_id, exclude_photo_id]
+    if candidate_names:
+        sql += " AND k.display_name IN (" + ", ".join(["%s"] * len(candidate_names)) + ")"
+        params.extend(candidate_names)
+    cursor.execute(sql, tuple(params))
+    rows = [r for r in cursor.fetchall() if r[1] not in exclude_person_ids]
     if not rows:
         return None
 
@@ -83,9 +102,11 @@ def _face_json(face, person=None, status="unknown"):
 # - 같은 파일(SHA-256)이 이미 있으면 사진은 다시 저장하지 않고 얼굴·이름만 다시 정리한다
 # - 이름이 있으면 가장 큰 얼굴을 그 사람으로 확정(confirmed)하고, 나머지 얼굴은 아는 사람과 자동 매칭(auto)을 시도한다
 # 반환: {photo_id, duplicate, face_count, person_id, faces:[...]}. 이미지가 아니면 UnsupportedImageError.
-def save_photo(data: bytes, name: str = None) -> dict:
+# - candidate_names가 있으면 나머지 얼굴의 자동 매칭을 그 이름들로만 제한한다 (예: 고른 대화방 참여자)
+def save_photo(data: bytes, name: str = None, candidate_names=None) -> dict:
     rgb, mime, raw_img = open_image(data)
     name = (name or "").strip()[:_NAME_MAXLEN] or None
+    candidate_names = clean_candidates(candidate_names)
     file_hash = hashlib.sha256(data).hexdigest()
 
     # 얼굴 벡터는 DB 연결 전에 먼저 계산한다 (트랜잭션을 짧게)
@@ -124,17 +145,20 @@ def save_photo(data: bytes, name: str = None) -> dict:
         person_id = get_or_create_person(cursor, user_id, name) if name else None
 
         result_faces = []
+        assigned = set()  # 이 사진에서 이미 배정한 사람 (한 사진에 같은 사람은 한 번)
         for i, face in enumerate(faces):
             if i == 0 and person_id:
                 person = {"person_id": person_id, "name": name, "similarity": None}
                 status, sim = "confirmed", None
             else:
-                person = match_face(cursor, user_id, face["embedding"], exclude_photo_id=photo_id)
+                person = match_face(
+                    cursor, user_id, face["embedding"], exclude_photo_id=photo_id,
+                    candidate_names=candidate_names, exclude_person_ids=assigned,
+                )
                 status = "auto" if person else "unknown"
                 sim = person["similarity"] if person else None
-                # 이름 붙인 사람과 같은 사람으로 매칭되면 중복이므로 버린다 (한 사진에 같은 사람은 한 번)
-                if person and person["person_id"] == person_id:
-                    person, status, sim = None, "unknown", None
+            if person:
+                assigned.add(person["person_id"])
 
             x, y, w, h = face["bbox"]
             cursor.execute(
@@ -168,17 +192,25 @@ def save_photo(data: bytes, name: str = None) -> dict:
         conn.close()
 
 
-# 저장하지 않고 사진 속 얼굴마다 아는 사람과 매칭한 결과만 반환한다
-def match_photo(data: bytes) -> dict:
+# 저장하지 않고 사진 속 얼굴마다 아는 사람과 매칭한 결과만 반환한다 (큰 얼굴 순)
+# - candidate_names가 있으면 그 이름의 사람들하고만 비교한다
+def match_photo(data: bytes, candidate_names=None) -> dict:
     rgb, _, _ = open_image(data)
     faces = extract_faces(rgb)
+    candidate_names = clean_candidates(candidate_names)
     user_id = get_or_create_user_id("")
     conn = get_db_connection()
     cursor = conn.cursor()
     try:
         out = []
+        assigned = set()  # 한 사진에 같은 사람은 한 번 (큰 얼굴이 먼저 가져간다)
         for face in faces:
-            person = match_face(cursor, user_id, face["embedding"])
+            person = match_face(
+                cursor, user_id, face["embedding"],
+                candidate_names=candidate_names, exclude_person_ids=assigned,
+            )
+            if person:
+                assigned.add(person["person_id"])
             out.append(_face_json(face, person, "auto" if person else "unknown"))
         return {"face_count": len(faces), "faces": out}
     finally:
