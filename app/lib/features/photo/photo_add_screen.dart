@@ -68,7 +68,13 @@ class _PhotoUploadScreenState extends State<PhotoUploadScreen> {
       setState(() => _phase[i] = _Phase.uploading);
       final photo = c.photos[c.selectedPhotos[i]];
       try {
-        final faces = await repo.uploadPhoto(bytes: photo.bytes, fileName: photo.name, name: c.photoNames[c.selectedPhotos[i]]);
+        // 같이 찍힌 다른 얼굴도 고른 대화방 참여자하고만 자동 매칭한다
+        final faces = await repo.uploadPhoto(
+          bytes: photo.bytes,
+          fileName: photo.name,
+          name: c.photoNames[c.selectedPhotos[i]],
+          candidates: c.candidateNames,
+        );
         if (!mounted) return;
         setState(() {
           _phase[i] = _Phase.done;
