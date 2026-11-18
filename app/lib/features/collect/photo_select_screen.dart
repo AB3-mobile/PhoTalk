@@ -54,44 +54,16 @@ class _PhotoSelectScreenState extends State<PhotoSelectScreen> {
       context,
       MaterialPageRoute(builder: (_) => NameInputScreen(controller: widget.controller)),
     );
-    if (done == true && mounted) Navigator.pop(context);
+    if (done == true && mounted) Navigator.pop(context, true);
   }
 
   @override
   Widget build(BuildContext context) {
-    final period = widget.controller.period;
     final photos = widget.controller.photos;
     return SubScreenScaffold(
       title: '사진 선택',
       body: Column(
         children: [
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Row(
-              children: [
-                Expanded(
-                  child: _FilterPill(
-                    icon: Icons.calendar_today_rounded,
-                    label: period == null
-                        ? '전체 기간'
-                        : '${formatShortDate(period.start)} – ${formatShortDate(period.end)}',
-                  ),
-                ),
-                const SizedBox(width: 10),
-                const Expanded(child: _FilterPill(label: '전체 앨범')),
-              ],
-            ),
-          ),
-          if (period != null) ...[
-            const SizedBox(height: 10),
-            Container(
-              margin: const EdgeInsets.symmetric(horizontal: 20),
-              height: 28,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(color: const Color(0xFFE3E8FA), borderRadius: BorderRadius.circular(14)),
-              child: Text('대화 기간에 맞춰 날짜를 추천했어요', style: appText(11, weight: FontWeight.w700, color: AppColors.accent)),
-            ),
-          ],
           const SizedBox(height: 12),
           Expanded(
             child: GridView.builder(
@@ -114,9 +86,8 @@ class _PhotoSelectScreenState extends State<PhotoSelectScreen> {
               },
             ),
           ),
-          Container(
-            color: Colors.white,
-            padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -131,37 +102,6 @@ class _PhotoSelectScreenState extends State<PhotoSelectScreen> {
         ],
       ),
       bottom: NextButton(label: '다음 · 이름 입력', enabled: _selected.isNotEmpty, onPressed: _next),
-    );
-  }
-}
-
-// 위쪽 필터 알약 (기간/앨범 선택 모양, 아직 눌러도 바뀌지 않는다)
-class _FilterPill extends StatelessWidget {
-  const _FilterPill({required this.label, this.icon});
-
-  final String label;
-  final IconData? icon;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: 42,
-      padding: const EdgeInsets.symmetric(horizontal: 14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(21),
-        border: Border.all(color: const Color(0xFFDDE3F7)),
-      ),
-      child: Row(
-        children: [
-          if (icon != null) ...[
-            Icon(icon, size: 16, color: AppColors.accent),
-            const SizedBox(width: 8),
-          ],
-          Expanded(child: Text(label, style: appText(12, weight: FontWeight.w700))),
-          const Icon(Icons.keyboard_arrow_down_rounded, size: 20, color: AppColors.accent),
-        ],
-      ),
     );
   }
 }

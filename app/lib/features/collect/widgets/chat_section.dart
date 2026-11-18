@@ -82,12 +82,15 @@ class _ChatRow extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
         onTap: onTap,
         child: Container(
-      height: 56,
-      padding: const EdgeInsets.symmetric(horizontal: 14),
+      // 높이는 56 이상, 이름이 길어 줄이 늘어나면 내용에 맞춰 커진다
+      constraints: const BoxConstraints(minHeight: 56),
+      alignment: Alignment.centerLeft,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
       child: Row(
         children: [
           Expanded(
             child: Column(
+              mainAxisSize: MainAxisSize.min,
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
