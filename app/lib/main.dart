@@ -7,7 +7,7 @@ import 'data/api/graph_repository_api.dart';
 import 'data/api/history_repository_api.dart';
 import 'data/api/photo_repository_api.dart';
 import 'data/api/relationship_repository_api.dart';
-import 'data/mock/search_repository_mock.dart';
+import 'data/api/search_repository_api.dart';
 import 'data/api/stats_repository_api.dart';
 import 'domain/repositories/chatroom_repository.dart';
 import 'domain/repositories/graph_repository.dart';
@@ -15,6 +15,7 @@ import 'domain/repositories/history_repository.dart';
 import 'domain/repositories/photo_repository.dart';
 import 'domain/repositories/relationship_repository.dart';
 import 'domain/repositories/search_repository.dart';
+import 'features/search/recent_searches.dart';
 import 'domain/repositories/stats_repository.dart';
 import 'features/start/start_screen.dart';
 
@@ -32,7 +33,7 @@ class PhoTalkApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     // 어떤 구현을 쓸지 정하는 곳은 여기 한 군데다.
-    // 대화방·참여자·인물별 키워드·관계는 서버(Api), 검색은 아직 Mock이다.
+    // 대화방·참여자·인물별 키워드·관계·검색은 서버(Api)에서 가져온다.
     return MultiProvider(
       providers: [
         Provider<ChatroomRepository>.value(value: chatroomRepository),
@@ -42,7 +43,8 @@ class PhoTalkApp extends StatelessWidget {
         Provider<GraphRepository>(create: (_) => GraphRepositoryApi()),
         Provider<HistoryRepository>(create: (_) => HistoryRepositoryApi()),
         Provider<PhotoRepository>(create: (_) => PhotoRepositoryApi()),
-        Provider<SearchRepository>(create: (_) => SearchRepositoryMock()),
+        Provider<SearchRepository>(create: (_) => SearchRepositoryApi()),
+        ChangeNotifierProvider<RecentSearches>(create: (_) => RecentSearches()),
       ],
       child: MaterialApp(
         title: 'PhoTalk',

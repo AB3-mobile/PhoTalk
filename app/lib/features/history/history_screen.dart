@@ -15,6 +15,7 @@ import '../../domain/repositories/photo_repository.dart';
 import '../collect/widgets/circle_icon_button.dart';
 import '../collect/widgets/person_avatar.dart';
 import '../menu/app_menu_drawer.dart';
+import '../search/search_panel.dart';
 
 // 히스토리 화면(My Time): 대화방과 연도·월을 고르면 그 달의 주요 사건 요약, 주요 연락처, 키워드 순위를 보여 준다
 class HistoryScreen extends StatefulWidget {
@@ -336,7 +337,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                       ),
                       const SizedBox(width: 16),
                       Expanded(child: Text('히스토리', style: appText(22, weight: FontWeight.w700))),
-                      const CircleIconButton(icon: Icons.search_rounded, iconColor: AppColors.accent),
+                      CircleIconButton(icon: Icons.search_rounded, iconColor: AppColors.accent, onPressed: () => openSearchPanel(context)),
                     ],
                   ),
                 ),
@@ -561,6 +562,15 @@ class _SummaryCardState extends State<_SummaryCard> {
   static const double _itemHeight = 48 + 6 + 18;
   static const double _bubbleWidth = 230;
 
+  // 요약 칸 전용 스크롤 (바깥 화면 스크롤과 겹치지 않게 따로 둔다)
+  final ScrollController _summaryScroll = ScrollController();
+
+  @override
+  void dispose() {
+    _summaryScroll.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     final summary = widget.summary;
@@ -577,7 +587,9 @@ class _SummaryCardState extends State<_SummaryCard> {
           SizedBox(
             height: 84,
             child: Scrollbar(
+              controller: _summaryScroll,
               child: SingleChildScrollView(
+                controller: _summaryScroll,
                 child: Text(
                   (summary?.text ?? '').isEmpty ? '이 달의 요약이 없어요' : summary!.text,
                   style: appText(13, color: AppColors.textPrimary).copyWith(height: 1.75),

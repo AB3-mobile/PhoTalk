@@ -9,6 +9,7 @@ import 'collect_controller.dart';
 import 'collect_data.dart';
 import 'confirm_screen.dart';
 import 'photo_select_screen.dart';
+import '../search/search_panel.dart';
 import 'widgets/chat_section.dart';
 import 'widgets/circle_icon_button.dart';
 import 'widgets/next_button.dart';
@@ -174,7 +175,7 @@ class _Header extends StatelessWidget {
           iconColor: AppColors.textPrimary,
           onPressed: () => Scaffold.of(context).openDrawer(),
         ),
-        const CircleIconButton(icon: Icons.search_rounded, iconColor: AppColors.accent),
+        CircleIconButton(icon: Icons.search_rounded, iconColor: AppColors.accent, onPressed: () => openSearchPanel(context)),
       ],
     );
   }
