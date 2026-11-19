@@ -20,6 +20,6 @@ abstract class PhotoRepository {
     List<String>? candidates,
   });
 
-  // 이 이름으로 저장된 얼굴을 잘라낸 정사각형 JPEG을 돌려준다 (저장된 얼굴이 없으면 null)
-  Future<Uint8List?> getPersonFace(String name);
+  // 이 이름으로 저장된 얼굴을 잘라낸 정사각형 JPEG을 돌려준다 (저장된 얼굴이 없으면 null, random이면 저장된 얼굴 중 아무거나)
+  Future<Uint8List?> getPersonFace(String name, {bool random = false});
 }

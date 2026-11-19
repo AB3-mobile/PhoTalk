@@ -4,12 +4,14 @@ import 'package:provider/provider.dart';
 import 'core/app_theme.dart';
 import 'data/api/chatroom_repository_api.dart';
 import 'data/api/graph_repository_api.dart';
+import 'data/api/history_repository_api.dart';
 import 'data/api/photo_repository_api.dart';
 import 'data/api/relationship_repository_api.dart';
 import 'data/mock/search_repository_mock.dart';
 import 'data/api/stats_repository_api.dart';
 import 'domain/repositories/chatroom_repository.dart';
 import 'domain/repositories/graph_repository.dart';
+import 'domain/repositories/history_repository.dart';
 import 'domain/repositories/photo_repository.dart';
 import 'domain/repositories/relationship_repository.dart';
 import 'domain/repositories/search_repository.dart';
@@ -38,6 +40,7 @@ class PhoTalkApp extends StatelessWidget {
             create: (_) => RelationshipRepositoryApi()),
         Provider<StatsRepository>(create: (_) => StatsRepositoryApi()),
         Provider<GraphRepository>(create: (_) => GraphRepositoryApi()),
+        Provider<HistoryRepository>(create: (_) => HistoryRepositoryApi()),
         Provider<PhotoRepository>(create: (_) => PhotoRepositoryApi()),
         Provider<SearchRepository>(create: (_) => SearchRepositoryMock()),
       ],

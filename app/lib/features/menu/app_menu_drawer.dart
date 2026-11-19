@@ -4,21 +4,20 @@ import '../../core/app_colors.dart';
 import '../../core/app_text.dart';
 import '../collect/collect_screen.dart';
 import '../graph/knowledge_graph_screen.dart';
+import '../history/history_screen.dart';
 import '../photo/photo_add_screen.dart';
 
 // 서비스 이름 아래에 표시할 팀 이름 (실제 팀 이름으로 바꿔 쓴다)
 const String kTeamName = '고모프';
 
 // 왼쪽 메뉴에 들어가는 화면 목록
-enum AppMenuItem { collect, build, graph, photo, member, history, search }
+enum AppMenuItem { collect, graph, photo, member, history, search }
 
 // 메뉴 항목의 이름과 아이콘을 돌려준다
 (String, IconData) _info(AppMenuItem i) {
   switch (i) {
     case AppMenuItem.collect:
       return ('데이터 수집', Icons.storage_outlined);
-    case AppMenuItem.build:
-      return ('그래프 구축', Icons.share_outlined);
     case AppMenuItem.graph:
       return ('지식 그래프 보기', Icons.show_chart_rounded);
     case AppMenuItem.photo:
@@ -53,6 +52,7 @@ class AppMenuDrawer extends StatelessWidget {
     Widget? page;
     if (item == AppMenuItem.collect) page = const CollectScreen();
     if (item == AppMenuItem.graph) page = const KnowledgeGraphScreen();
+    if (item == AppMenuItem.history) page = const HistoryScreen();
     if (page == null) {
       messenger.showSnackBar(SnackBar(content: Text('${_info(item).$1} 화면은 다음 단계에서 연결해요')));
       return;

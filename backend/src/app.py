@@ -1376,13 +1376,16 @@ def photo_thumbnail(photo_id):
 @app.route("/person-face", methods=["GET"])
 def person_face():
     try:
-        face = get_person_face_crop(request.args.get("name"))
+        random_pick = request.args.get("random") == "1"
+        face = get_person_face_crop(request.args.get("name"), random_pick)
     except Exception as e:
         traceback.print_exc()
         return jsonify({"error": f"얼굴 이미지 생성 실패: {e}"}), 500
     if face is None:
         return jsonify({"error": "이 이름으로 저장된 얼굴이 없습니다."}), 404
-    return Response(face, mimetype="image/jpeg", headers={"Cache-Control": "max-age=300"})
+    # 랜덤 요청은 매번 다른 사진이 나오도록 캐시하지 않는다
+    cache = "no-store" if random_pick else "max-age=300"
+    return Response(face, mimetype="image/jpeg", headers={"Cache-Control": cache})
 
 
 if __name__ == '__main__':

@@ -52,8 +52,8 @@ class PhotoRepositoryApi implements PhotoRepository {
   }
 
   @override
-  Future<Uint8List?> getPersonFace(String name) async {
-    final uri = Uri.parse('$apiBaseUrl/person-face').replace(queryParameters: {'name': name});
+  Future<Uint8List?> getPersonFace(String name, {bool random = false}) async {
+    final uri = Uri.parse('$apiBaseUrl/person-face').replace(queryParameters: {'name': name, if (random) 'random': '1'});
     final res = await http.get(uri);
     if (res.statusCode == 404) return null;
     if (res.statusCode != 200) throw Exception('/person-face 요청 실패 (${res.statusCode})');
