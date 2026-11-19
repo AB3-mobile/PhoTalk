@@ -39,6 +39,7 @@ dependencies:
   google_fonts: ^9.0.0
   file_picker: ^13.3.2
   desktop_drop: ^0.8.0
+  shared_preferences: ^2.5.6
 
 dev_dependencies:
   flutter_test:
