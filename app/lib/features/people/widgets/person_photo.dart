@@ -18,9 +18,7 @@ class PersonPhoto extends StatefulWidget {
   final String? avatarUrl;
   final double size;
 
-  // 같은 사람의 얼굴을 화면마다 다시 요청하지 않도록 앱 실행 중 기억해 둔다 (성공한 것만 오래 기억)
-  static final Map<String, Uint8List> _faces = {};
-  // 이미 요청 중인 얼굴 (같은 이름을 동시에 여러 번 요청하지 않게)
+  // 이미 요청 중인 얼굴 (같은 이름을 동시에 여러 번 요청하지 않게, 요청이 끝나면 비운다)
   static final Map<String, Future<Uint8List?>> _pending = {};
   // 저장된 얼굴이 없다고 답받은 시각 (30초 동안은 다시 묻지 않는다)
   static final Map<String, DateTime> _missing = {};
@@ -50,11 +48,6 @@ class _PersonPhotoState extends State<PersonPhoto> {
   // 서버에 저장된 얼굴이 있으면 받아 온다 (없거나 실패하면 기본 아바타로 남는다)
   Future<void> _loadFace() async {
     final name = widget.name;
-    final cached = PersonPhoto._faces[name];
-    if (cached != null) {
-      _face = cached;
-      return;
-    }
     final missedAt = PersonPhoto._missing[name];
     if (missedAt != null && DateTime.now().difference(missedAt) < const Duration(seconds: 30)) return;
     final repo = context.read<PhotoRepository>();
@@ -71,7 +64,7 @@ class _PersonPhotoState extends State<PersonPhoto> {
       PersonPhoto._missing[name] = DateTime.now();
       return;
     }
-    PersonPhoto._faces[name] = bytes;
+    // 저장해 두지 않으므로 화면을 새로 열 때마다 저장된 얼굴 중 아무거나 새로 뽑힌다
     if (mounted && widget.name == name) setState(() => _face = bytes);
   }
 
