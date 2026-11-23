@@ -1,0 +1,33 @@
+{
+  "date_range": {"first_date": "2024-06-01", "last_date": "2024-12-31"},
+  "mood": {
+    "room_demo_1": {
+      "monthly": [
+        {"period": "2024-06", "mood_score": 0.7, "mood_description": "설레고 들뜬 분위기"},
+        {"period": "2024-07", "mood_score": 0.9, "mood_description": "매우 사적이고 친밀한 분위기"},
+        {"period": "2024-08", "mood_score": 0.8, "mood_description": "편안하고 즐거운 분위기"}
+      ],
+      "yearly": [
+        {"period": "2024", "mood_score": 0.85, "mood_description": "매우 사적이고 친밀한 분위기"}
+      ]
+    },
+    "room_demo_2": {
+      "monthly": [
+        {"period": "2024-09", "mood_score": 0.5, "mood_description": "차분하고 진지한 분위기"},
+        {"period": "2024-10", "mood_score": 0.6, "mood_description": "협력적이고 집중된 분위기"}
+      ],
+      "yearly": [
+        {"period": "2024", "mood_score": 0.55, "mood_description": "협력적이고 집중된 분위기"}
+      ]
+    }
+  },
+  "day_messages": [
+    {"time": "15:02", "sender": "서연", "text": "기말 발표 자료 누가 정리할래?", "is_system": false},
+    {"time": "15:04", "sender": "민지", "text": "내가 정리할게 ㅋㅋ 금요일까지 올려둘게", "is_system": false},
+    {"time": "15:05", "sender": "준호", "text": "오 땡큐 ㅠㅠ", "is_system": false},
+    {"time": "15:06", "sender": null, "text": "서연님이 사진 2장을 보냈습니다.", "is_system": true},
+    {"time": "15:07", "sender": "민지", "text": "스터디룸은 3시로 예약해놨어!", "is_system": false},
+    {"time": "15:09", "sender": "태민", "text": "나는 조금 늦을 것 같아", "is_system": false},
+    {"time": "15:10", "sender": "민지", "text": "괜찮아 천천히 와", "is_system": false}
+  ]
+}

@@ -5,6 +5,7 @@ import 'core/app_theme.dart';
 import 'data/api/chatroom_repository_api.dart';
 import 'data/api/graph_repository_api.dart';
 import 'data/api/history_repository_api.dart';
+import 'data/api/people_repository_api.dart';
 import 'data/api/photo_repository_api.dart';
 import 'data/api/relationship_repository_api.dart';
 import 'data/api/search_repository_api.dart';
@@ -12,6 +13,7 @@ import 'data/api/stats_repository_api.dart';
 import 'domain/repositories/chatroom_repository.dart';
 import 'domain/repositories/graph_repository.dart';
 import 'domain/repositories/history_repository.dart';
+import 'domain/repositories/people_repository.dart';
 import 'domain/repositories/photo_repository.dart';
 import 'domain/repositories/relationship_repository.dart';
 import 'domain/repositories/search_repository.dart';
@@ -25,10 +27,12 @@ void main() {
 
 class PhoTalkApp extends StatelessWidget {
   // 테스트에서 다른 구현(Mock)을 넣을 수 있게 열어둔다. 기본은 서버(Api).
-  PhoTalkApp({super.key, ChatroomRepository? chatroomRepository})
-      : chatroomRepository = chatroomRepository ?? ChatroomRepositoryApi();
+  PhoTalkApp({super.key, ChatroomRepository? chatroomRepository, PeopleRepository? peopleRepository})
+      : chatroomRepository = chatroomRepository ?? ChatroomRepositoryApi(),
+        peopleRepository = peopleRepository ?? PeopleRepositoryApi();
 
   final ChatroomRepository chatroomRepository;
+  final PeopleRepository peopleRepository;
 
   @override
   Widget build(BuildContext context) {
@@ -42,6 +46,7 @@ class PhoTalkApp extends StatelessWidget {
         Provider<StatsRepository>(create: (_) => StatsRepositoryApi()),
         Provider<GraphRepository>(create: (_) => GraphRepositoryApi()),
         Provider<HistoryRepository>(create: (_) => HistoryRepositoryApi()),
+        Provider<PeopleRepository>.value(value: peopleRepository),
         Provider<PhotoRepository>(create: (_) => PhotoRepositoryApi()),
         Provider<SearchRepository>(create: (_) => SearchRepositoryApi()),
         ChangeNotifierProvider<RecentSearches>(create: (_) => RecentSearches()),
