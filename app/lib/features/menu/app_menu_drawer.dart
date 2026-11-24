@@ -5,6 +5,7 @@ import '../../core/app_text.dart';
 import '../collect/collect_screen.dart';
 import '../graph/knowledge_graph_screen.dart';
 import '../history/history_screen.dart';
+import '../people/people_screen.dart';
 import '../photo/photo_add_screen.dart';
 import '../search/search_page.dart';
 
@@ -54,6 +55,7 @@ class AppMenuDrawer extends StatelessWidget {
     if (item == AppMenuItem.collect) page = const CollectScreen();
     if (item == AppMenuItem.graph) page = const KnowledgeGraphScreen();
     if (item == AppMenuItem.history) page = const HistoryScreen();
+    if (item == AppMenuItem.member) page = const PeopleScreen();
     if (item == AppMenuItem.search) page = const SearchPage();
     if (page == null) {
       messenger.showSnackBar(SnackBar(content: Text('${_info(item).$1} 화면은 다음 단계에서 연결해요')));

@@ -9,6 +9,7 @@ import '../../domain/models/graph_build_status.dart';
 import '../../domain/models/person.dart';
 import '../../domain/models/upload_status.dart';
 import '../../domain/repositories/chatroom_repository.dart';
+import 'api_post.dart' show apiDate;
 
 // 서버(Flask)에서 대화방·참여자를 가져오는 ChatroomRepository
 class ChatroomRepositoryApi implements ChatroomRepository {
@@ -40,7 +41,7 @@ class ChatroomRepositoryApi implements ChatroomRepository {
         .toList();
   }
 
-  // TODO: 서버의 /chatroom-person-detail 에 연결 (지금은 getPeople 결과로 대신한다)
+  // 서버 /chatroom-person-detail 에서 기간 안의 메시지 수가 든 참여자 정보를 가져온다
   @override
   Future<List<Person>> getPersonDetail(
     String chatroomId, {
@@ -48,9 +49,15 @@ class ChatroomRepositoryApi implements ChatroomRepository {
     required DateTime end,
     String? participantId,
   }) async {
-    final people = await getPeople(chatroomId);
-    if (participantId == null) return people;
-    return people.where((p) => p.participantId == participantId).toList();
+    final json = await _post('/chatroom-person-detail', {
+      'chatroom_id': chatroomId,
+      'participant_id': participantId ?? '',
+      'start_date': apiDate(start),
+      'end_date': apiDate(end),
+    });
+    return (json['data']['people'] as List)
+        .map((e) => Person.fromJson(e as Map<String, dynamic>))
+        .toList();
   }
 
   // 서버 /message-upload 에 대화 텍스트를 보내 jobId를 받는다

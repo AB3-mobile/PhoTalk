@@ -1,14 +1,10 @@
 import '../../domain/models/keyword_count.dart';
 import '../../domain/models/monthly_count.dart';
 import '../../domain/repositories/stats_repository.dart';
-import '../mock/stats_repository_mock.dart';
 import 'api_post.dart';
 
-// 서버(Flask)에서 인물별 키워드를 가져오는 StatsRepository (월별 메시지 수는 아직 Mock)
+// 서버(Flask)에서 인물별 키워드와 월별 메시지 수를 가져오는 StatsRepository
 class StatsRepositoryApi implements StatsRepository {
-  // 월별 메시지 수 API를 연결하기 전까지 대신 쓰는 Mock
-  final StatsRepository _monthlyFallback = StatsRepositoryMock();
-
   @override
   Future<List<KeywordCount>> getKeywordsByPerson(
     String chatroomId,
@@ -25,8 +21,13 @@ class StatsRepositoryApi implements StatsRepository {
     return (json['data']['keywords'] as List).map((e) => KeywordCount.fromJson(e as Map<String, dynamic>)).toList();
   }
 
-  // TODO: 서버의 월별 통계 API에 연결 (지금은 Mock 값을 돌려준다)
+  // 서버 /chatroom-person-monthly-stats 에서 한 사람의 월별 메시지 수를 가져온다 (전체 기간, 월 오름차순)
   @override
-  Future<List<MonthlyCount>> getMonthlyMessageCounts(String chatroomId, String participantId) =>
-      _monthlyFallback.getMonthlyMessageCounts(chatroomId, participantId);
+  Future<List<MonthlyCount>> getMonthlyMessageCounts(String chatroomId, String participantId) async {
+    final json = await apiPost('/chatroom-person-monthly-stats', {
+      'chatroom_id': chatroomId,
+      'participant_id': participantId,
+    });
+    return (json['data']['monthly'] as List? ?? []).map((e) => MonthlyCount.fromJson(e as Map<String, dynamic>)).toList();
+  }
 }

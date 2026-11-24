@@ -10,24 +10,27 @@ import '../../../domain/models/search_result.dart';
 import '../../../domain/repositories/photo_repository.dart';
 import '../../../domain/repositories/search_repository.dart';
 import '../../collect/widgets/person_avatar.dart';
+import '../../people/widgets/person_photo.dart';
 
 // 검색 결과의 근거가 된 그날의 대화를 아래에서 올라오는 시트로 보여 준다
-Future<void> showEvidenceSheet(BuildContext context, SearchSource source) {
+// avatarUrls: 이름 → 서버가 준 프로필 사진 주소 (멤버 화면처럼 사진을 이미 아는 곳에서 넘겨 준다)
+Future<void> showEvidenceSheet(BuildContext context, SearchSource source, {Map<String, String> avatarUrls = const {}}) {
   final future = context.read<SearchRepository>().getChatBlock(source.account!, source.id!);
   return showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
     backgroundColor: Colors.white,
     shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(28))),
-    builder: (_) => _EvidenceSheet(future: future),
+    builder: (_) => _EvidenceSheet(future: future, avatarUrls: avatarUrls),
   );
 }
 
 // 근거 대화 시트 본문: 제목, 대화방 · 날짜, 말풍선 목록
 class _EvidenceSheet extends StatelessWidget {
-  const _EvidenceSheet({required this.future});
+  const _EvidenceSheet({required this.future, this.avatarUrls = const {}});
 
   final Future<ChatBlock> future;
+  final Map<String, String> avatarUrls;
 
   @override
   Widget build(BuildContext context) {
@@ -52,7 +55,7 @@ class _EvidenceSheet extends StatelessWidget {
                 builder: (context, snap) {
                   if (snap.connectionState != ConnectionState.done) return const Center(child: CircularProgressIndicator());
                   if (snap.hasError) return Center(child: Text('대화를 불러오지 못했어요', style: appText(13, color: AppColors.error)));
-                  return _EvidenceMessages(block: snap.data!);
+                  return _EvidenceMessages(block: snap.data!, avatarUrls: avatarUrls);
                 },
               ),
             ),
@@ -65,9 +68,10 @@ class _EvidenceSheet extends StatelessWidget {
 
 // 근거 대화의 말풍선 목록: 말하는 사람마다 얼굴 사진(없으면 기본 아바타)을 옆에 붙인다
 class _EvidenceMessages extends StatefulWidget {
-  const _EvidenceMessages({required this.block});
+  const _EvidenceMessages({required this.block, this.avatarUrls = const {}});
 
   final ChatBlock block;
+  final Map<String, String> avatarUrls;
 
   @override
   State<_EvidenceMessages> createState() => _EvidenceMessagesState();
@@ -101,6 +105,8 @@ class _EvidenceMessagesState extends State<_EvidenceMessages> {
   // 이름의 얼굴 사진이 있으면 원형 사진, 없으면 기본 아바타
   Widget _avatar(String name) {
     final bytes = _faces[name];
+    final url = widget.avatarUrls[name];
+    if (bytes == null && url != null && url.isNotEmpty) return PersonPhoto(name: name, avatarUrl: url, size: 32);
     if (bytes == null) return PersonAvatar(index: _names.indexOf(name), size: 32);
     return ClipOval(child: Image.memory(bytes, width: 32, height: 32, fit: BoxFit.cover, gaplessPlayback: true));
   }
